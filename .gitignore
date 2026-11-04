@@ -7,6 +7,9 @@ __pycache__/
 build/
 dist/
 
+# Static 静态资源
+static/
+
 # Release package: 只放编译产物和教程，配置/日志/工作目录一律不进仓库
 release/*
 !release/Vtuber-Live/
