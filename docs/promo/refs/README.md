@@ -44,7 +44,7 @@
 
 ## 生成方式（可复现）
 
-- Live2D 截图：运行鲸语 → 打开 `http://127.0.0.1:8787/live2d?bg=eef2f8` → 用 DevTools 协议截图；
+- Live2D 截图：运行Vtuber-Live → 打开 `http://127.0.0.1:8787/live2d?bg=eef2f8` → 用 DevTools 协议截图；
   表情通过 `POST /api/l2d/test` 触发（设置页的「试播表情」按钮同源）。
 - 表情包抽帧：取 `S:\jyn\鲸鲸.N.gif` 的中间帧导出 PNG。
 - 封面：ImageGen 生成 + Pillow 排版（见 `docs/promo/video-brief.md`）。

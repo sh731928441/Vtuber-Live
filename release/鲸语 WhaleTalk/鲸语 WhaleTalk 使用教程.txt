@@ -1,4 +1,4 @@
-鲸语 WhaleTalk 使用教程
+Vtuber-Live 使用教程
 ================================================
 
 一、它能做什么
@@ -23,7 +23,7 @@
 
 二、文件说明
 ------------------------------------------------
-  WhaleTalk.exe     主程序，双击运行
+  Vtuber-Live.exe     主程序，双击运行
   qoder_login.bat      第一次使用前运行一次，登录 Qoder CLI（AI 回复要用）
   config.json          设置文件，第一次运行后自动生成（里面有 B 站登录信息，不要发给别人）
   logs\app.log         程序日志
@@ -40,7 +40,7 @@
    （本机已经装好 Qoder CLI：C:\Users\Administrator\.qoder\bin\qodercli\qodercli.exe，
     也已经登录过了；以后登录过期了再运行一次 qoder_login.bat。）
 
-2. 双击 WhaleTalk.exe
+2. 双击 Vtuber-Live.exe
    会打开一个独立的应用窗口（内嵌 WebView2，没有地址栏和标签页，首次约 5 秒）。
    不会再弹黑色控制台窗口，日志在 logs\app.log；系统缺 WebView2 时会自动退回 Edge 窗口。
    默认什么都不自动开始：不连直播间、不启动引擎、不放歌单、不开游戏、也不计时。
@@ -464,4 +464,4 @@ A: 源码目录 tools\train_voice.py 是训练脚本（大肥鱼就是用它训�
   web\         界面、字幕页面、Live2D 皮套页面（live2d.html）、游戏面板（game.html）
   web\vendor\  PixiJS、pixi-live2d-display（MIT）、Live2D Cubism Core（Live2D 官方，
                按 Live2D 专有软件许可协议分发，个人/小规模使用免费）
-重新打包：双击源码目录里的 build.bat，生成 dist\WhaleTalk.exe。
+重新打包：双击源码目录里的 build.bat，生成 dist\Vtuber-Live.exe。

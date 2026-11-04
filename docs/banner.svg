@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="300" viewBox="0 0 1280 300" role="img" aria-label="鲸语 WhaleTalk">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="300" viewBox="0 0 1280 300" role="img" aria-label="Vtuber-Live">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#121826"/>
@@ -24,8 +24,8 @@
     <path d="M905 232c22 8 44 12 66 12 46 0 88-14 122-38" stroke="#8fd3ff" stroke-width="3" fill="none" opacity="0.35" stroke-linecap="round"/>
   </g>
   <g font-family="Microsoft YaHei UI, PingFang SC, Noto Sans CJK SC, sans-serif">
-    <text x="80" y="132" font-size="86" font-weight="700" fill="url(#ink)" letter-spacing="6">鲸语</text>
-    <text x="86" y="196" font-size="40" font-weight="600" fill="#e8eefc" letter-spacing="2">WhaleTalk</text>
+    <text x="80" y="132" font-size="86" font-weight="700" fill="url(#ink)" letter-spacing="6">Vtuber-Live</text>
+    <text x="86" y="196" font-size="40" font-weight="600" fill="#e8eefc" letter-spacing="2">Vtuber-Live</text>
     <text x="88" y="240" font-size="21" fill="#93a4c4" letter-spacing="1">B 站直播 · AI 回复 · GPT-SoVITS 语音 · Live2D 皮套 · 点歌</text>
   </g>
   <rect x="80" y="258" width="330" height="2" fill="url(#ink)" opacity="0.5"/>

@@ -1,6 +1,6 @@
 # 参与贡献
 
-感谢你愿意改进鲸语（WhaleTalk）。这个项目刻意保持“单体、少依赖、本机运行”，提交前请先看几条约定。
+感谢你愿意改进Vtuber-Live。这个项目刻意保持“单体、少依赖、本机运行”，提交前请先看几条约定。
 
 ## 开发环境
 
@@ -8,7 +8,7 @@
 uv venv --python 3.12 .venv
 .venv\Scripts\pip install -r requirements-dev.txt
 .venv\Scripts\python main.py          # 调试运行
-build.bat                              # 打包 dist\WhaleTalk.exe
+build.bat                              # 打包 dist\Vtuber-Live.exe
 ```
 
 - 需要 Windows（audio 播放与进程管理用到了 Win32 API）

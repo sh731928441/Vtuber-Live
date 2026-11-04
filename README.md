@@ -1,11 +1,11 @@
-<p align="center"><img src="docs/banner.svg" alt="鲸语 WhaleTalk" width="100%"></p>
+<p align="center"><img src="docs/banner.svg" alt="Vtuber-Live" width="100%"></p>
 
-# 鲸语 WhaleTalk
+# Vtuber-Live
 
 > 把 B 站 / 抖音直播间变成会说话、有表情的 AI 主播。
 > 读弹幕 → Qoder 大模型写回复 → GPT-SoVITS 合成语音 → Live2D 皮套对口型播放，还能点歌。
 
-鲸语（WhaleTalk）是一个跑在 Windows 本机的开源直播助手：
+Vtuber-Live（Vtuber-Live）是一个跑在 Windows 本机的开源直播助手：
 
 - 实时读取 **B 站 / 抖音** 直播间的 **进房 / 弹幕 / 礼物 / 上舰（粉丝团）/ 醒目留言 / 关注 / 点赞**
 - 交给 **Qoder 大模型**（或任意 OpenAI 兼容接口、或固定模板）生成口语回复
@@ -108,7 +108,7 @@
 
 ### 三步跑起来
 
-1. 启动 `WhaleTalk.exe`：会打开一个**独立应用窗口**（内嵌 WebView2，没有地址栏/标签页，首次约 5 秒）。
+1. 启动 `Vtuber-Live.exe`：会打开一个**独立应用窗口**（内嵌 WebView2，没有地址栏/标签页，首次约 5 秒）。
    不再弹黑色控制台窗口，日志在 `logs/app.log`
 2. 在【语音设置】选 **GPT-SoVITS 目录**、**参考音频**、**参考音频文本**，点【试听】
 3. 在【直播间 / 登录】选弹幕来源：
@@ -294,7 +294,7 @@ uv venv --python 3.12 .venv
 
 .venv\Scripts\python main.py          # 直接运行（会打开内嵌窗口）
 .venv\Scripts\python main.py --browser-ui   # 用 Edge 窗口打开（排查窗口问题时用）
-build.bat                              # 打包成 dist\WhaleTalk.exe（需要 requirements-dev.txt）
+build.bat                              # 打包成 dist\Vtuber-Live.exe（需要 requirements-dev.txt）
 # 手动打包时别忘了：--add-data "web;web" --add-data "games.py;srcdata"
 #                  --collect-all webview --hidden-import clr（内嵌窗口依赖）
 # （srcdata 是给「按变量拆段烘焙」读固定台词用的，漏了会把游戏台词退化成内置那十几条）
@@ -356,7 +356,7 @@ build.bat                              # 打包成 dist\WhaleTalk.exe（需要 r
 
 ## English (short)
 
-**WhaleTalk** is a local Windows live-streaming assistant for Bilibili: it reads danmaku/gift/guard events,
+**Vtuber-Live** is a local Windows live-streaming assistant for Bilibili: it reads danmaku/gift/guard events,
 generates replies with the Qoder LLM (or any OpenAI-compatible API), speaks them with your own GPT-SoVITS
 voice, drives a Live2D avatar with lip-sync and emotion-based expressions, shows replies in a speech bubble,
 supports gift-gated song requests from NetEase Cloud Music, and includes AI-hosted games (interactive with

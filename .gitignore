@@ -9,11 +9,11 @@ dist/
 
 # Release package: 只放编译产物和教程，配置/日志/工作目录一律不进仓库
 release/*
-!release/鲸语 WhaleTalk/
-release/鲸语 WhaleTalk/*
-!release/鲸语 WhaleTalk/WhaleTalk.exe
-!release/鲸语 WhaleTalk/qoder_login.bat
-!release/鲸语 WhaleTalk/鲸语 WhaleTalk 使用教程.txt
+!release/Vtuber-Live/
+release/Vtuber-Live/*
+!release/Vtuber-Live/Vtuber-Live.exe
+!release/Vtuber-Live/qoder_login.bat
+!release/Vtuber-Live/Vtuber-Live 使用教程.txt
 
 # Local settings & runtime data (contain login cookies!)
 config.json

@@ -15,7 +15,7 @@
 | 训练数据（56 条，可重训） | `D:\DDL\voice_data\da-fei-yu-girl-voice-zh\train\`（`metadata.csv` + `audio\`） |
 | GPT-SoVITS 引擎 | `D:\DDL\GPT-SoVITS-v2pro-20250604\GPT-SoVITS-v2pro-20250604\` |
 
-> 鲸语软件里就是这三项：**语音设置 → GPT 模型 / SoVITS 模型 / 参考音频 + 参考音频文本**。
+> Vtuber-Live软件里就是这三项：**语音设置 → GPT 模型 / SoVITS 模型 / 参考音频 + 参考音频文本**。
 > 存在软件目录 `config.json` 的 `tts.gpt_weights`、`tts.sovits_weights`、`tts.ref_audio`、`tts.ref_text`。
 
 ## 二、三种用法
@@ -23,7 +23,7 @@
 ### 方式 A：命令行工具（推荐，任何 AI 都能调用）
 
 ```powershell
-cd <鲸语源码目录>
+cd <Vtuber-Live源码目录>
 .venv\Scripts\python tools\tts_cli.py ^
   --gsv-dir "D:\DDL\GPT-SoVITS-v2pro-20250604\GPT-SoVITS-v2pro-20250604" ^
   --gpt GPT_weights_v2Pro/dfy-e15.ckpt ^
@@ -91,7 +91,7 @@ SoVITS 权重：SoVITS_weights_v2Pro\dfy_e10_s560.pth
 采样率：32000，单声道，sample_steps 32，speed_factor 1.0。
 
 做法（二选一）：
-A. 已在鲸语源码目录配好 .venv 时：
+A. 已在Vtuber-Live源码目录配好 .venv 时：
    .venv\Scripts\python tools\tts_cli.py --gsv-dir "<上面引擎目录>" \
      --gpt GPT_weights_v2Pro/dfy-e15.ckpt --sovits SoVITS_weights_v2Pro/dfy_e10_s560.pth \
      --ref "<上面参考音频>" --ref-text "<上面参考文本>" --file lines.txt --out voice --mp3

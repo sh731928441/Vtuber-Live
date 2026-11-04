@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<title>鲸语 WhaleTalk</title>
+<title>Vtuber-Live</title>
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="/static/icon.png">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -156,7 +156,7 @@ pre.log{background:rgba(7,9,14,.78);border:1px solid var(--line);border-radius:1
 <body>
 <div class="app">
 <nav>
-  <div class="brand"><span class="logo"><img src="/static/icon.png" alt="鲸语 Logo"></span><span class="bt">鲸语 WhaleTalk<small>直播 AI 语音助手</small></span></div>
+  <div class="brand"><span class="logo"><img src="/static/icon.png" alt="Vtuber-Live Logo"></span><span class="bt">Vtuber-Live<small>直播 AI 语音助手</small></span></div>
   <button data-tab="dash" class="on">控制台</button>
   <button data-tab="room">直播间 / 登录</button>
   <button data-tab="rules">回复规则</button>
@@ -1074,7 +1074,7 @@ function connectWs() {
       const d = document.createElement('div');
       d.id = 'offlineBar';
       d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99;background:#f2545b;color:#fff;padding:8px 16px;font-weight:600;text-align:center';
-      d.textContent = '与程序失去连接（鲸语 WhaleTalk 可能已退出），请重新打开 WhaleTalk.exe';
+      d.textContent = '与程序失去连接（Vtuber-Live 可能已退出），请重新打开 Vtuber-Live.exe';
       document.body.appendChild(d);
     }, 2000);
     setTimeout(connectWs, 3000);

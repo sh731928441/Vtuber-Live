@@ -1033,7 +1033,7 @@ async def amain(app: App, open_window=True):
         log.info("已退出")
 
 
-def _msgbox(text, title="鲸语 WhaleTalk"):
+def _msgbox(text, title="Vtuber-Live"):
     try:
         ctypes.windll.user32.MessageBoxW(0, text, title, 0x10)
     except Exception:
@@ -1091,7 +1091,7 @@ def _request_stop(app):
 
 def main():
     if sys.platform == "win32":
-        ctypes.windll.kernel32.SetConsoleTitleW("鲸语 WhaleTalk - 关闭此窗口即退出")
+        ctypes.windll.kernel32.SetConsoleTitleW("Vtuber-Live - 关闭此窗口即退出")
     cfg = config.load()
     port = int(cfg.get("web_port", 8787))
     if port_in_use(port):
@@ -1101,7 +1101,7 @@ def main():
             _show_console()
         return
     print("=" * 60)
-    print(" 鲸语 WhaleTalk  ·  B站 / 抖音直播 AI 语音助手   关闭此窗口即退出程序")
+    print(" Vtuber-Live  ·  B站 / 抖音直播 AI 语音助手   关闭此窗口即退出程序")
     print("=" * 60)
     app = App()
 

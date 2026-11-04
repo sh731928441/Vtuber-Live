@@ -10,7 +10,7 @@ import sys
 
 log = logging.getLogger("ui")
 
-TITLE = "鲸语 WhaleTalk"
+TITLE = "Vtuber Live"
 
 
 def available():

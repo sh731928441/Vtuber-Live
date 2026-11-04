@@ -1,4 +1,4 @@
-# 鲸语 WhaleTalk · 工作交接文档
+# Vtuber-Live · 工作交接文档
 
 > 面向接手的 AI / 开发者。最后更新：2026-10-31，对应版本 **v0.3.0**。
 > 建议阅读顺序：本文 → `README.md` → `CHANGELOG.md` → 需要改的模块。
@@ -14,7 +14,7 @@
 2. **系统没有全局 git**。用便携版：`D:\tools\MinGit\cmd\git.exe`（2.56.0）。
 3. **C 盘空间紧张**（写作时约 5 GB）。onefile 的 exe 每次启动要往 `%TEMP%` 解压约 90 MB，
    空间不足会直接起不来；PyInstaller 还会留下 `%TEMP%\_MEI*`，可安全清理。
-4. **`config.json`、`release\鲸语 WhaleTalk\config.json`、`zcode_identity.json`、`logs/`、各种 workdir 都是个人数据**，
+4. **`config.json`、`release\Vtuber-Live\config.json`、`zcode_identity.json`、`logs/`、各种 workdir 都是个人数据**，
    已在 `.gitignore` 里排除，**绝对不要提交、不要贴到聊天/日志里**。
 5. 用户的语言是中文；界面文案、提交信息、Release 说明都用中文。
 
@@ -22,7 +22,7 @@
 
 ## 1. 项目概览
 
-**鲸语 WhaleTalk**：Windows 桌面端直播助手。
+**Vtuber-Live**：Windows 桌面端直播助手。
 
 ```
 B站/抖音弹幕、礼物、上舰、SC
@@ -38,22 +38,22 @@ B站/抖音弹幕、礼物、上舰、SC
 
 - 界面：`web/` 静态页，后端 aiohttp `127.0.0.1:8787`，WebSocket `/ws` 推送日志/回复
 - 窗口：pywebview + WebView2（`desktop.py`）；没有 WebView2 时退回 Edge `--app` 窗口
-- 打包：PyInstaller `--onefile --windowed`，产物 `WhaleTalk.exe`
+- 打包：PyInstaller `--onefile --windowed`，产物 `Vtuber-Live.exe`
 - Python：`.venv\Scripts\python.exe`（3.12.14）
 
 ### 版本与仓库
 
 | 项 | 值 |
 |---|---|
-| GitHub | https://github.com/helplesspur/WhaleTalk- |
+| GitHub | https://github.com/sh731928441/Vtuber-Live |
 | 当前 main | `9a85327`（build: 发布版 exe，v0.3.0） |
 | 提交链 | `e02e312` v0.1.0 → `a0dd41d` 源码 → `d21e49c` exe → `ad07f4e` v0.2.0 → `5e0e6fc` 源码 → `9a85327` exe |
 | Tag | `v0.1.0`、`v0.2.0`（`ad07f4e`）、`v0.3.0`（见下文 docs 提交） |
-| Release | v0.3.0（Latest）：https://github.com/helplesspur/WhaleTalk-/releases/tag/v0.3.0 |
-| 发布 exe | `release\鲸语 WhaleTalk\WhaleTalk.exe`，42,568,394 字节 |
+| Release | v0.3.0（Latest）：https://github.com/sh731928441/Vtuber-Live/releases/tag/v0.3.0 |
+| 发布 exe | `release\Vtuber-Live\Vtuber-Live.exe`，42,568,394 字节 |
 | 本地配置 | `config.json`（根目录，9.5 KB，未提交） |
 
-Release 资产：`WhaleTalk-v0.3.0-win64.zip`、`WhaleTalk.exe`、`Tutorial-CN.txt`、`SHA256SUMS.txt`。
+Release 资产：`Vtuber-Live-v0.3.0-win64.zip`、`Vtuber-Live.exe`、`Tutorial-CN.txt`、`SHA256SUMS.txt`。
 
 ---
 
@@ -135,7 +135,7 @@ Invoke-RestMethod http://127.0.0.1:8787/api/ai/test_openai -Method Post -Headers
 - `qodercli` 会发 `system/model_queue_status`：`status=queued/ready`、`service_available`、`queue_wait_elapsed_ms`、`wait_time_ms`。
   低/中/高思考档位会走推理队列，高峰期可能排队数分钟（实测有一次 196 秒才 ready）。
 - 超时文案见 `QoderSession._timeout_text()`：包含实际等待、超时设置、模型、思考档位、队列状态和建议。
-- 用户 `release\鲸语 WhaleTalk\config.json` 是**个人运行配置，随时可能改**（交接时读到的是 OpenAI 兼容 `chat`、超时 30 秒，
+- 用户 `release\Vtuber-Live\config.json` 是**个人运行配置，随时可能改**（交接时读到的是 OpenAI 兼容 `chat`、超时 30 秒，
   同时保留着 Qoder 模型 `Sonus` 的记录）。不要假设当前后端，先 `GET /api/config` 看；也不要擅自改用户配置。
 
 ### OpenAI 兼容
@@ -205,17 +205,17 @@ Invoke-RestMethod http://127.0.0.1:8787/api/ai/test_openai -Method Post -Headers
 
 ```powershell
 cd "C:\Users\Administrator\Documents\Qoder\2026-10-25\46567a23\BiliVoiceBot"
-.\.venv\Scripts\pyinstaller.exe --noconfirm --clean --onefile --windowed --name WhaleTalk `
+.\.venv\Scripts\pyinstaller.exe --noconfirm --clean --onefile --windowed --name Vtuber-Live `
   --icon "web\favicon.ico" --add-data "web;web" --add-data "games.py;srcdata" `
   --collect-all webview --hidden-import clr --hidden-import qrcode.image.svg `
   --hidden-import miniaudio --exclude-module matplotlib --exclude-module PyQt5 main.py
 ```
 
-- `build.bat` 是同样命令（带 pause）；`WhaleTalk.spec` / `BiliVoiceBot.spec` 已提交。
+- `build.bat` 是同样命令（带 pause）；`Vtuber-Live.spec` / `BiliVoiceBot.spec` 已提交。
 - `web/` 必须一起打包（`config.RES_DIR` 指向 `_MEIPASS`）；`games.py` 打到 `srcdata`。
 - 图标：`web/favicon.ico`（多尺寸 16~256）、`web/icon.png`（侧边栏/网页图标）。
-- 拷贝发布：`Copy-Item dist\WhaleTalk.exe "release\鲸语 WhaleTalk\WhaleTalk.exe" -Force`
-- 校验打包内容：`pyi-archive_viewer.exe -l dist\WhaleTalk.exe | Select-String 'favicon|index.html'`
+- 拷贝发布：`Copy-Item dist\Vtuber-Live.exe "release\Vtuber-Live\Vtuber-Live.exe" -Force`
+- 校验打包内容：`pyi-archive_viewer.exe -l dist\Vtuber-Live.exe | Select-String 'favicon|index.html'`
 - 校验 exe 图标：`[System.Drawing.Icon]::ExtractAssociatedIcon(exe)` 存 PNG 看。
 - 构建后清理 `%TEMP%\_MEI*`（被杀掉的 onefile 进程会残留，每个约 86 MB）。
 
@@ -241,7 +241,7 @@ $g = 'D:\tools\MinGit\cmd\git.exe'
 
 ### 6.3 GitHub Release
 
-- 用 API 创建：`POST /repos/helplesspur/WhaleTalk-/releases`（`tag_name`、`target_commitish=main`、`name`、`body`）。
+- 用 API 创建：`POST /repos/helplesspur/Vtuber-Live-/releases`（`tag_name`、`target_commitish=main`、`name`、`body`）。
 - 上传资产：`POST https://uploads.github.com/repos/.../releases/{id}/assets?name=<urlencode>`，
   `Content-Type: application/octet-stream`；单文件 <100 MB。
 - v0.2.0 的资产：zip（exe + `qoder_login.bat` + 使用教程 + README）、exe、`Tutorial-CN.txt`、`SHA256SUMS.txt`。
@@ -265,7 +265,7 @@ qoder_workdir/  cli_workdir/  ui_profile/  douyin_profile/  tts_cache/
 docs/promo/refs/*            # 角色皮套/表情参考图，版权归作者（README 除外）
 ```
 
-`release/` 用**白名单**：只放行 `WhaleTalk.exe`、`qoder_login.bat`、`鲸语 WhaleTalk 使用教程.txt`。
+`release/` 用**白名单**：只放行 `Vtuber-Live.exe`、`qoder_login.bat`、`Vtuber-Live 使用教程.txt`。
 新增发布文件时必须同步改 `.gitignore`，否则 `git add -A` 会漏。
 
 提交前自检：
@@ -314,7 +314,7 @@ docs/promo/refs/*            # 角色皮套/表情参考图，版权归作者（
 ## 10. 接手后的第一步
 
 1. `& $g -c safe.directory='*' status --porcelain` → 应为空；`log --oneline -3` 应为 `9a85327 / 5e0e6fc / ad07f4e`。
-2. 确认 `release\鲸语 WhaleTalk\WhaleTalk.exe` 存在（42,568,394 字节）且 `config.json` **未被修改/外传**。
+2. 确认 `release\Vtuber-Live\Vtuber-Live.exe` 存在（42,568,394 字节）且 `config.json` **未被修改/外传**。
 3. `python main.py --no-ui` 起服务，`GET /api/config` 通 → 说明后端正常。
 4. 需要改 UI 时改 `web/index.html`，**改完必须重新打包**，exe 里是 `_MEIPASS` 的副本。
 5. 需要发布时：构建 → 复制到 `release` → 提交（源码/产物分开）→ 打 tag → 建 Release + 传资产 → 验证下载。

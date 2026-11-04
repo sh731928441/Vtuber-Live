@@ -74,7 +74,7 @@ async def main():
         "mode": "browser",
         "room_url": f"http://127.0.0.1:{PORT}/",
         "debug_port": 9334,
-        "profile_dir": os.path.join(tempfile.gettempdir(), "whaletalk_douyin_selftest"),
+        "profile_dir": os.path.join(tempfile.gettempdir(), "Vtuber-Live_douyin_selftest"),
         "keep_browser": False,
         "headless": True,
         "gift_prices": "小心心=1\n玫瑰=1",
