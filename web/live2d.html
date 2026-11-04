@@ -26,9 +26,11 @@ html.off body{visibility:hidden}
 <script src="/static/vendor/live2dcubismcore.min.js"></script>
 <script src="/static/vendor/pixi.min.js"></script>
 <script src="/static/vendor/cubism4.min.js"></script>
+<script src="/static/live2d-mask.js"></script>
 <script>
 const qs = new URLSearchParams(location.search);
 if (qs.get('bg')) document.body.style.background = (qs.get('bg').startsWith('#') ? '' : '#') + qs.get('bg');
+const MASK_FIX_OFF = qs.get('maskfix') === 'off';   // 排查用：?maskfix=off 关掉蒙版修复
 const MOUTH_IDS = ['ParamMouthOpenY', 'PARAM_MOUTH_OPEN_Y'];
 const FADE = 0.35;
 PIXI.live2d.Live2DModel.registerTicker(PIXI.Ticker);
@@ -66,6 +68,9 @@ async function loadModel() {
     model = await PIXI.live2d.Live2DModel.from('/l2d/model/auto.model3.json?t=' + Date.now(), {autoHitTest: false, autoFocus: false});
   } catch (e) { errBox.textContent = 'Live2D 模型加载失败：' + e; return; }
   const im = model.internalModel;
+  // 大肥鱼这类皮套的独立裁剪蒙版超过 36 个时，Cubism 会退到“所有蒙版共用同一张贴图”的
+  // 降级路径，把头发/身体的蒙版一起盖到脸上。这里按需切到高精度蒙版，逐 drawable 重画。
+  if (!MASK_FIX_OFF && window.Live2DMaskFix) window.Live2DMaskFix.apply(model);
   im.lipSync = false;
   if (!CFG.blink) im.eyeBlink = undefined;
   im.breath = {updateParameters: frame};
