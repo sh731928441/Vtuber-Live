@@ -5,6 +5,8 @@
 > 把 B 站 / 抖音直播间变成会说话、有表情的 AI 主播。
 > 读弹幕 → Qoder 大模型写回复 → GPT-SoVITS 合成语音 → Live2D 皮套对口型播放，还能点歌。
 
+> 本项目是基于[WhaleTalk-](https://github.com/helplesspur/WhaleTalk-)项目二次开发而来，感谢原作者的开源贡献。
+
 Vtuber-Live（Vtuber-Live）是一个跑在 Windows 本机的开源直播助手：
 
 - 实时读取 **B 站 / 抖音** 直播间的 **进房 / 弹幕 / 礼物 / 上舰（粉丝团）/ 醒目留言 / 关注 / 点赞**
