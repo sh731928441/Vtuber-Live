@@ -1,5 +1,8 @@
 schema: spec-driven
 
+context: |
+  - 所有产出物必须用简体中文撰写，保留 OpenSpec 要求的结构关键字。
+
 # Project context (optional)
 # This is shown to AI when creating artifacts.
 # Add your tech stack, conventions, style guides, domain knowledge, etc.
