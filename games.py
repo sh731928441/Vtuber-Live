@@ -487,13 +487,13 @@ class GameManager:
                   "question": "我心里想了一个 1 到 100 的数字，发弹幕猜猜看！",
                   "lo": 1, "hi": 100, "tries": 0, "max_tries": max_tries,
                   "win": None, "over": False, "guesses": [],
-                  "hint": "范围 1 ~ 100", "deadline": time.time() + 90})
+                  "hint": "范围 1 ~ 100", "deadline": time.time() + 150})
         self.push()
         await self._say_wait("来玩猜数字！我心里想了一个一到一百之间的数字，打在弹幕里，"
                              f"我告诉你是大了还是小了。最多回答{max_tries}次，猜中有积分！", "期待")
         if self.active is not a:
             return
-        a["deadline"] = time.time() + 90
+        a["deadline"] = time.time() + 150
         self.push()
         while self.active is a and not a.get("win") and not a.get("over") and time.time() < a["deadline"]:
             await self._wait_event(a["deadline"])
@@ -552,13 +552,13 @@ class GameManager:
         a.update({"title": "数字炸弹", "phase": "playing", "number": random.randint(1, 100),
                   "question": "数字炸弹藏在 1 到 100 之间，踩中的人会被炸飞！",
                   "lo": 1, "hi": 100, "exploded": None, "guesses": [],
-                  "hint": "范围 1 ~ 100", "deadline": time.time() + 90})
+                  "hint": "范围 1 ~ 100", "deadline": time.time() + 150})
         self.push()
         await self._say_wait("来玩数字炸弹！一到一百之间埋了一个炸弹，大家轮流报数，"
                              "每报一个数范围就会缩小，谁报到炸弹谁就被炸飞！谁先来？", "期待")
         if self.active is not a:
             return
-        a["deadline"] = time.time() + 90
+        a["deadline"] = time.time() + 150
         self.push()
         while self.active is a and not a.get("exploded") and time.time() < a["deadline"]:
             await self._wait_event(a["deadline"])
@@ -631,11 +631,11 @@ class GameManager:
         a.update({"title": "AI 贪吃蛇", "phase": "playing", "arcade": game,
                   "question": "贪吃蛇正在自动找食物，发 上/下/左/右 帮它转向！",
                   "hint": f"喂到一个食物 +1 分（算给最近的操作员）· 速度 {speed:.2f} 秒/步",
-                  "board": game.state(), "prompted": False, "deadline": time.time() + 90})
+                  "board": game.state(), "prompted": False, "deadline": time.time() + 150})
         self.push()
         self._say("来玩贪吃蛇！它会自己找吃的，你们发 上 下 左 右 帮它转向，"
                   "喂到食物的人加一分！", "期待")
-        a["deadline"] = time.time() + 90
+        a["deadline"] = time.time() + 150
         started = time.time()
         self.push()
         while self.active is a and not game.dead and time.time() < a["deadline"]:
@@ -1101,12 +1101,12 @@ class GameManager:
         a.update({"title": "猜拳对决", "question": "我出什么？发「石头 / 剪刀 / 布」来挑战我！",
                   "hint": "赢我 +2 分，平局 +1 分，输了一分不给", "phase": "playing",
                   "options": [{"label": "AI 赢", "votes": 0}, {"label": "观众赢", "votes": 0}],
-                  "plays": [], "deadline": time.time() + 75})
+                  "plays": [], "deadline": time.time() + 180})
         self.push()
         await self._say_wait("猜拳对决开始！石头剪刀布随便出，赢我一次加两分，快来！", "调皮")
         if self.active is not a:
             return
-        a["deadline"] = time.time() + 75
+        a["deadline"] = time.time() + 180
         self.push()
         while self.active is a and time.time() < a["deadline"]:
             await self._wait_event(a["deadline"])
