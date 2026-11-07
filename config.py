@@ -26,6 +26,7 @@ DEFAULTS = {
     "session": {"auto_start": False},
     "room_id": 0,
     "bili_cookie": "",
+    "bili_follow_back": {"enabled": False},
     "douyin": {
         "mode": "browser",
         "web_rid": "",

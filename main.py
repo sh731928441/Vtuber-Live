@@ -15,7 +15,7 @@ from aiohttp import web, WSMsgType
 
 import config
 import live2d
-from bili import BiliLive, QrLogin
+from bili import BiliFollowBack, BiliLive, QrLogin
 from brain import Brain, CLI_PRESETS, default_qoder_exe, err_text, list_qoder_models
 from douyin import DouyinLive, find_browser
 from games import CATALOG, GameManager
@@ -58,12 +58,21 @@ class App:
         self.brain = Brain()
         self.engine = GsvEngine()
         self.player = Player()
-        self.bili = BiliLive(self.on_event, lambda m: self.push("log", {"level": "info", "msg": m}))
+        self.bili = BiliLive(self.on_event, lambda m: self.push("log", {"level": "info", "msg": m}),
+                             self.on_bili_follow)
         self.douyin = DouyinLive(self.on_event, lambda m: self.push("log", {"level": "info", "msg": m}))
         self.pipe = Pipeline(self)
         self.songs = SongManager(self)
         self.games = GameManager(self)
         self.qr = QrLogin()
+        self.follow_back = BiliFollowBack(
+            get_session=lambda: self.bili.session,
+            is_enabled=lambda: bool(self.cfg.get("bili_follow_back", {}).get("enabled")),
+            get_login_uid=lambda: self.bili.login_uid,
+            get_ignore_entries=self._follow_back_ignore_entries,
+            emit_log=lambda level, msg: self.push("log", {"level": level, "msg": msg}),
+            get_room_id=lambda: self.bili.room_id,
+        )
         self.baker = Baker()
         self.session_active = False
         self.status = {}
@@ -89,6 +98,17 @@ class App:
         if ev.get("type") == "gift" and not ev.get("test"):
             self.add_gift(ev)
         self.pipe.on_event(ev)
+
+    def on_bili_follow(self, ev):
+        if self.platform != "bilibili" or ev.get("platform") != "bilibili" or ev.get("test"):
+            return
+        self.follow_back.enqueue(ev)
+
+    def _follow_back_ignore_entries(self):
+        raw = str((self.cfg.get("filter") or {}).get("ignore_users") or "")
+        for sep in ("，", ",", "；", ";", "\n"):
+            raw = raw.replace(sep, "\n")
+        return [item.strip() for item in raw.splitlines() if item.strip()]
 
     # ---------- 平台 ----------
     @property
@@ -209,6 +229,7 @@ class App:
 
     async def startup(self):
         self.pipe.start()
+        self.follow_back.start()
         self.tasks = [asyncio.create_task(self.status_loop()), asyncio.create_task(self.stats_loop()),
                       asyncio.create_task(self.songs.run()), asyncio.create_task(self.games.run())]
         if (self.cfg.get("session") or {}).get("auto_start"):
@@ -269,6 +290,7 @@ class App:
 
     async def connect(self):
         self.session_active = True  # 手动点连接也算开播，自动歌单/游戏轮换随之生效
+        self.follow_back.clear()
         if self.platform == "douyin":
             self.push("log", {"level": "info", "msg": "正在连接抖音直播间 …"})
             try:
@@ -278,11 +300,15 @@ class App:
             return
         self.push("log", {"level": "info", "msg": f"正在连接直播间 {self.cfg['room_id']} …"})
         try:
+            self.follow_back.reset_login()
             await self.bili.start(self.cfg["room_id"], self.cfg.get("bili_cookie", ""))
+            if not self.bili.login_uid and self.cfg.get("bili_follow_back", {}).get("enabled"):
+                self.follow_back.invalidate_login()
         except Exception as e:
             self.push("log", {"level": "error", "msg": f"连接直播间失败：{e}"})
 
     async def disconnect(self):
+        self.follow_back.clear()
         await self.bili.stop()
         await self.douyin.stop()
         self._track_live(False)
@@ -322,7 +348,8 @@ class App:
                 await asyncio.wait_for(t, 0.5)
             except (Exception, asyncio.CancelledError):
                 pass
-        for coro in (self.bili.stop(), self.douyin.stop(keep=False), self.brain.close()):
+        for coro in (self.follow_back.stop(), self.bili.stop(), self.douyin.stop(keep=False),
+                     self.brain.close()):
             try:
                 await asyncio.wait_for(coro, 4)
             except (Exception, asyncio.CancelledError):
@@ -496,6 +523,8 @@ def build_web(app: App):
         old_platform = app.platform
         app.cfg = config.merge(app.cfg, patch)
         config.save(app.cfg)
+        if "bili_follow_back" in patch and not app.cfg["bili_follow_back"].get("enabled"):
+            app.follow_back.clear()
         if "live2d" in patch:
             app.push("l2d_config", {})
         if "songs" in patch:

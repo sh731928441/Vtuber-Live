@@ -302,6 +302,10 @@ pre.log{background:rgba(7,9,14,.78);border:1px solid var(--line);border-radius:1
     <details style="margin-top:8px"><summary class="hint" style="cursor:pointer">或者手动粘贴 Cookie</summary>
       <div class="row" style="margin-top:8px"><input id="cookieIn" placeholder="SESSDATA=...; bili_jct=...; DedeUserID=..."><span class="btn" id="cookieBtn">保存</span></div>
     </details>
+    <div class="row" style="margin-top:10px">
+      <label class="c"><input type="checkbox" data-k="bili_follow_back.enabled">被关注时自动回关</label>
+      <p class="hint">使用当前扫码或手动 Cookie 登录的账号回关。手动 Cookie 必须包含 <code>bili_jct</code>；普通关注和特别关注会回关，互粉会跳过。</p>
+    </div>
   </div>
 
   <div class="card" id="dyBox" style="display:none">
