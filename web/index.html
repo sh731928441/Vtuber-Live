@@ -966,15 +966,20 @@ function addLine(box, html, cls = '') {
   if (stick) box.scrollTop = box.scrollHeight;
   return d;
 }
+function addLinePre(box, html, cls = '') {
+  const d = document.createElement('div'); d.className = 'it ' + cls; d.innerHTML = html; box.prepend(d);
+  while (box.children.length > 400) box.lastElementChild.remove();
+  return d;
+}
 const replyEls = {};
 function handle(m) {
   switch (m.kind) {
     case 'hello': m.history.forEach(handle); if (m.status) setStatus(m.status); if (m.game) renderGame(m.game); break;
     case 'status': setStatus(m.status); break;
     case 'session': renderSession(!!m.active); break;
-    case 'event': addLine(feedEv, `<span class="t">${m.t}</span><span class="tag ${m.type}">${esc(m.tname)}</span><span>${esc(m.desc)}${m.test ? ' <span class="hint">[模拟]</span>' : ''}${m.skip ? ` <span class="hint">· ${esc(m.skip)}</span>` : ''}</span>`, m.skip ? 'skip' : ''); break;
-    case 'reply': replyEls[m.id] = addLine(feedRe, `<span class="t">${m.t}</span><span class="tag ${m.type}">${m.type === 'manual' ? '手动' : '回复'}</span><span><span class="txt">${esc(m.text)}</span><br><span class="src">${esc(m.desc)} · ${esc(m.src)}${m.emotion ? ' · 表情：' + esc(m.emotion) : ''}</span></span>`, 'reply'); break;
-    case 'log': addLine(feedRe, `<span class="t">${m.t}</span><span class="tag ${m.level === 'info' ? 'log' : m.level}">${m.level === 'error' ? '错误' : m.level === 'warn' ? '提示' : '系统'}</span><span>${esc(m.msg)}</span>`); break;
+    case 'event': addLinePre(feedEv, `<span class="t">${m.t}</span><span class="tag ${m.type}">${esc(m.tname)}</span><span>${esc(m.desc)}${m.test ? ' <span class="hint">[模拟]</span>' : ''}${m.skip ? ` <span class="hint">· ${esc(m.skip)}</span>` : ''}</span>`, m.skip ? 'skip' : ''); break;
+    case 'reply': replyEls[m.id] = addLinePre(feedRe, `<span class="t">${m.t}</span><span class="tag ${m.type}">${m.type === 'manual' ? '手动' : '回复'}</span><span><span class="txt">${esc(m.text)}</span><br><span class="src">${esc(m.desc)} · ${esc(m.src)}${m.emotion ? ' · 表情：' + esc(m.emotion) : ''}</span></span>`, 'reply'); break;
+    case 'log': addLinePre(feedRe, `<span class="t">${m.t}</span><span class="tag ${m.level === 'info' ? 'log' : m.level}">${m.level === 'error' ? '错误' : m.level === 'warn' ? '提示' : '系统'}</span><span>${esc(m.msg)}</span>`); break;
     case 'queue': $('#queueList').innerHTML = m.items.length ? '待回复：<br>' + m.items.map(esc).join('<br>') : ''; $('#s_queue').textContent = m.items.length; break;
     case 'speak': $('#nowSpeaking').innerHTML = `🔊 ${esc(m.text)}${m.cached ? ' <span class="dim">（预合成）</span>' : (m.segmented ? ` <span class="dim">（固定部分预合成 ${m.synth_s}s）</span>` : (m.synth_s ? ` <span class="dim">（合成 ${m.synth_s}s）</span>` : ''))}`; replyEls[m.id]?.classList.add('speaking'); break;
     case 'speak_end': $('#nowSpeaking').innerHTML = '<span class="dim">当前没有在说话</span>'; replyEls[m.id]?.classList.remove('speaking'); break;
