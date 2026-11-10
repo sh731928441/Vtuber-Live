@@ -6,8 +6,7 @@
 <style>
 html,body{margin:0;background:transparent;font-family:"Microsoft YaHei UI","PingFang SC",sans-serif;color:#fff}
 #box{margin:10px;width:calc(100vw - 20px);max-width:520px;background:rgba(20,22,32,.72);border:2px solid #fb7299;border-radius:16px;padding:14px 16px;box-sizing:border-box;text-shadow:0 1px 3px rgba(0,0,0,.6)}
-.title{font-size:18px;font-weight:700;color:#fb7299;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
-.title .tips{color:#C0C4CC;font-size:14px;font-weight:500}
+.title{font-size:18px;font-weight:700;color:#fb7299;margin-bottom:8px;display:flex;justify-content:space-between}
 .title small{color:#ccd;font-weight:400;font-size:13px}
 .now{font-size:20px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sub{font-size:13px;color:#ccd;margin-top:2px}
@@ -25,7 +24,7 @@ html.off body{visibility:hidden}
 </head>
 <body>
 <div id="box">
-  <div class="title">♪ 点歌列表 <span class="tips">格式为 点歌:歌名（也支持 点歌 歌名 歌手）</span><small id="hint"></small></div>
+  <div class="title">♪ 点歌列表 <small id="hint"></small></div>
   <div id="now"></div>
   <ol id="list"></ol>
 </div>
