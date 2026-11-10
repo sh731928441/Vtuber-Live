@@ -407,6 +407,10 @@ def build_web(app: App):
     async def index(_):
         return page("index.html")
 
+    @routes.get("/index.css")
+    async def indexCss(_):
+        return page("index.css")
+
     @routes.get("/overlay")
     async def overlay(_):
         return page("overlay.html")
@@ -418,6 +422,10 @@ def build_web(app: App):
     @routes.get("/game")
     async def game_page(_):
         return page("game.html")
+
+    @routes.get("/slay-the-spire-2")
+    async def slay_the_spire_2_page(_):
+        return page("slay-the-spire-2.html")
 
     @routes.get("/stats")
     async def stats_page(_):
