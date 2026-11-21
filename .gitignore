@@ -6,6 +6,8 @@ __pycache__/
 # Build output
 build/
 dist/
+disco-src/node_modules/
+web/disco
 
 # Static 静态资源
 static/

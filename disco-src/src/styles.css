@@ -1,0 +1,231 @@
+:root {
+  color: #fbf7ff;
+  background: #030207;
+  font-family: "Microsoft YaHei UI", "PingFang SC", sans-serif;
+  font-synthesis: none;
+  --pink: #ff62d6;
+  --cyan: #55e9ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #030207;
+}
+
+body {
+  user-select: none;
+}
+
+.disco-frame {
+  position: relative;
+  width: min(100vw, calc(100vh * 16 / 9));
+  height: min(100vh, calc(100vw * 9 / 16));
+  margin: auto;
+  top: 50%;
+  transform: translateY(-50%);
+  overflow: hidden;
+  background: #05030b;
+  box-shadow: 0 0 100px rgba(94, 33, 132, 0.25);
+}
+
+.stage-root,
+.disco-canvas,
+.hud {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.disco-canvas {
+  display: block;
+  cursor: grab;
+}
+
+.disco-canvas:active {
+  cursor: grabbing;
+}
+
+.disco-disabled .disco-canvas {
+  visibility: hidden;
+}
+
+.hud {
+  pointer-events: none;
+}
+
+.hud-brand {
+  position: absolute;
+  top: 24px;
+  left: 28px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  text-shadow: 0 2px 14px #000;
+}
+
+.hud-brand span {
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  color: var(--cyan);
+}
+
+.hud-brand b {
+  font-size: 25px;
+  letter-spacing: 0.12em;
+  color: var(--pink);
+}
+
+.audience-count {
+  position: absolute;
+  top: 27px;
+  right: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 13px;
+  border: 1px solid rgba(100, 232, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(8, 5, 14, 0.64);
+  color: #d9faff;
+  font-size: 13px;
+  backdrop-filter: blur(6px);
+}
+
+.audience-count i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #52ffbc;
+  box-shadow: 0 0 10px #52ffbc;
+}
+
+.debug-panel {
+  display: none;
+  position: absolute;
+  top: 76px;
+  right: 28px;
+  width: 242px;
+  padding: 14px;
+  border: 1px solid rgba(107, 225, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(4, 3, 10, 0.78);
+  color: #b9dbe2;
+  font: 12px/1.5 Consolas, monospace;
+  backdrop-filter: blur(9px);
+}
+
+.debug-on .debug-panel {
+  display: block;
+}
+
+.debug-panel div {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.debug-panel b {
+  color: #fff;
+}
+
+.debug-panel p {
+  margin: 10px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff0fa;
+}
+
+.connection-banner,
+.disabled-banner,
+.resource-errors {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  text-shadow: none;
+}
+
+.connection-banner {
+  top: 24px;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 192, 86, 0.46);
+  background: rgba(40, 24, 5, 0.84);
+  color: #ffe7b3;
+  border-radius: 999px;
+}
+
+.connection-banner[data-level="error"] {
+  border-color: rgba(255, 93, 114, 0.55);
+  background: rgba(47, 8, 17, 0.88);
+  color: #ffc5cf;
+}
+
+.disabled-banner {
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 18px 30px;
+  border: 1px solid rgba(255, 94, 210, 0.32);
+  background: rgba(8, 4, 14, 0.84);
+  color: #e9d9ef;
+  border-radius: 16px;
+}
+
+.disabled-banner strong {
+  color: var(--pink);
+  letter-spacing: 0.12em;
+}
+
+.resource-errors {
+  bottom: 22px;
+  max-width: min(920px, calc(100% - 48px));
+  padding: 9px 16px;
+  background: rgba(49, 12, 20, 0.9);
+  border: 1px solid rgba(255, 112, 138, 0.42);
+  color: #ffc5d0;
+  border-radius: 10px;
+}
+
+.fatal-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  padding: 40px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 25%, rgba(255, 71, 197, 0.14), transparent 48%),
+    #07040d;
+  pointer-events: none;
+}
+
+.fatal-overlay p {
+  margin: 0;
+  color: var(--pink);
+  font-size: 28px;
+  letter-spacing: 0.12em;
+}
+
+.fatal-overlay strong {
+  color: #d9d0df;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+[hidden] {
+  display: none !important;
+}

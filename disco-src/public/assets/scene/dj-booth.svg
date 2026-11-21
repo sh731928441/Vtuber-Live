@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="540" viewBox="0 0 620 540">
+  <defs>
+    <linearGradient id="deck" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4d216e"/>
+      <stop offset="1" stop-color="#1c102c"/>
+    </linearGradient>
+    <radialGradient id="disc" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#32e7ff"/>
+      <stop offset=".35" stop-color="#8549cb"/>
+      <stop offset="1" stop-color="#21102e"/>
+    </radialGradient>
+  </defs>
+  <path d="M96 212H524L596 366H24Z" fill="url(#deck)" stroke="#78419a" stroke-width="9"/>
+  <path d="M24 366H596V518H24Z" fill="#120a1b" stroke="#5d2c6e" stroke-width="9"/>
+  <path d="M54 366H566" stroke="#fe54c6" stroke-width="7"/>
+  <path d="M108 212H512" stroke="#32e7ff" stroke-width="6"/>
+  <circle cx="310" cy="238" r="124" fill="url(#disc)" stroke="#d84cf2" stroke-width="9"/>
+  <circle cx="310" cy="238" r="78" fill="#10091a" stroke="#35e5ff" stroke-width="4"/>
+  <circle cx="310" cy="238" r="18" fill="#ff54c7"/>
+  <g stroke="#4b2c63" stroke-width="5">
+    <path d="M98 404H522"/>
+    <path d="M98 448H522"/>
+  </g>
+  <g fill="#9b5bca" opacity=".65">
+    <rect x="132" y="390" width="72" height="28" rx="8"/>
+    <rect x="226" y="390" width="72" height="28" rx="8"/>
+    <rect x="320" y="390" width="72" height="28" rx="8"/>
+    <rect x="414" y="390" width="72" height="28" rx="8"/>
+  </g>
+</svg>

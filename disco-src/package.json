@@ -1,0 +1,20 @@
+{
+  "name": "vtuber-live-disco",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "pixi-viewport": "^6.0.0",
+    "pixi.js": "^8.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
+  }
+}

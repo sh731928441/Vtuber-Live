@@ -14,6 +14,7 @@ import webbrowser
 from aiohttp import web, WSMsgType
 
 import config
+from disco import DiscoManager
 import live2d
 from bili import BiliFollowBack, BiliLive, QrLogin
 from brain import Brain, CLI_PRESETS, default_qoder_exe, err_text, list_qoder_models
@@ -52,9 +53,17 @@ class UiLogHandler(logging.Handler):
 class App:
     def __init__(self):
         self.cfg = config.load()
+        if config.reset_disco_on_startup(self.cfg):
+            config.save(self.cfg)
         self.loop = None
         self.ws = set()
         self.history = collections.deque(maxlen=300)
+        self.disco = DiscoManager(
+            lambda: self.cfg.get("disco") or {},
+            emit=self.broadcast,
+            on_log=lambda level, message: self.push("log", {"level": level, "msg": message}),
+        )
+        self.disco_task = None
         self.brain = Brain()
         self.engine = GsvEngine()
         self.player = Player()
@@ -81,6 +90,12 @@ class App:
         logging.getLogger().addHandler(UiLogHandler(self))
 
     # ---------- 推送到界面 ----------
+    def broadcast(self, msg):
+        text = json.dumps(msg, ensure_ascii=False)
+        for ws in list(self.ws):
+            if not ws.closed:
+                asyncio.ensure_future(ws.send_str(text))
+
     def push(self, kind, data):
         msg = {"kind": kind, "t": time.strftime("%H:%M:%S"), **data}
         if kind in ("event", "reply", "log"):
@@ -89,14 +104,18 @@ class App:
             print(f"[{msg['t']}] {data.get('msg')}", flush=True)
         elif kind == "reply":
             log.info("回复[%s] %s  <- %s", data.get("src"), data.get("text"), data.get("desc"))
-        text = json.dumps(msg, ensure_ascii=False)
-        for ws in list(self.ws):
-            if not ws.closed:
-                asyncio.ensure_future(ws.send_str(text))
+        self.broadcast(msg)
 
     def on_event(self, ev):
         if ev.get("type") == "gift" and not ev.get("test"):
             self.add_gift(ev)
+        if self.disco_running:
+            try:
+                disco_event = dict(ev)
+                disco_event.setdefault("platform", self.platform)
+                self.disco.on_event(disco_event)
+            except Exception:
+                log.exception("Disco 事件处理失败，继续现有直播流程")
         self.pipe.on_event(ev)
 
     def on_bili_follow(self, ev):
@@ -227,11 +246,50 @@ class App:
             self.push("status", {"status": self.status})
             await asyncio.sleep(2)
 
+    async def disco_loop(self):
+        while self.disco.enabled:
+            await asyncio.sleep(1)
+            if not self.disco.enabled:
+                break
+            try:
+                self.disco.tick()
+            except Exception:
+                log.exception("Disco 超时清理失败")
+
+    @property
+    def disco_running(self):
+        task = self.disco_task
+        return bool(task is not None and not task.done())
+
+    def start_disco_service(self):
+        if not self.disco.enabled:
+            return False
+        if self.disco_running:
+            return True
+        self.disco_task = asyncio.create_task(self.disco_loop())
+        log.info("Disco 服务已启动")
+        return True
+
+    async def stop_disco_service(self):
+        task = self.disco_task
+        self.disco_task = None
+        if task is None:
+            return False
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        log.info("Disco 服务已暂停")
+        return True
+
     async def startup(self):
         self.pipe.start()
         self.follow_back.start()
         self.tasks = [asyncio.create_task(self.status_loop()), asyncio.create_task(self.stats_loop()),
                       asyncio.create_task(self.songs.run()), asyncio.create_task(self.games.run())]
+        if self.disco.enabled:
+            self.start_disco_service()
         if (self.cfg.get("session") or {}).get("auto_start"):
             await self.start_session(auto=True)
         else:
@@ -340,6 +398,9 @@ class App:
         for t in getattr(self, "tasks", []):
             t.cancel()
         pending = list(getattr(self, "tasks", [])) + list(getattr(self.pipe, "tasks", []))
+        if self.disco_task is not None:
+            self.disco_task.cancel()
+            pending.append(self.disco_task)
         if self.games.task and not self.games.task.done():
             self.games.task.cancel()
             pending.append(self.games.task)
@@ -418,6 +479,30 @@ def build_web(app: App):
     @routes.get("/live2d")
     async def live2d_page(_):
         return page("live2d.html")
+
+    @routes.get("/disco")
+    async def disco_page(_):
+        path = os.path.join(config.WEB_DIR, "disco", "index.html")
+        if not os.path.isfile(path):
+            return web.Response(status=503, text="Disco 页面尚未构建，请先运行 disco-src 的 npm run build")
+        return web.FileResponse(path, headers={"Cache-Control": "no-cache"})
+
+    @routes.get("/disco/assets/{path:.*}")
+    async def disco_asset(request):
+        base = os.path.realpath(os.path.join(config.WEB_DIR, "disco", "assets"))
+        rel = request.match_info["path"]
+        full = os.path.realpath(os.path.join(base, rel))
+        if not full.startswith(base + os.sep) or not os.path.isfile(full):
+            return web.Response(status=404)
+        cache = "no-cache" if rel.replace("\\", "/").startswith("role/") else "public, max-age=3600"
+        return web.FileResponse(full, headers={"Cache-Control": cache})
+
+    @routes.get("/api/disco/skins")
+    async def disco_skins(_):
+        return web.json_response({
+            "default": {"id": "default", "path": config.DEFAULT_DISCO_SKIN_PATH},
+            "files": config.disco_role_assets(),
+        })
 
     @routes.get("/game")
     async def game_page(_):
@@ -503,6 +588,10 @@ def build_web(app: App):
         await ws.send_str(json.dumps({"kind": "hello", "history": list(app.history), "status": app.status,
                                       "game": app.games.state()}, ensure_ascii=False))
         try:
+            await ws.send_str(json.dumps(app.disco.snapshot(emit=False), ensure_ascii=False))
+        except Exception:
+            log.exception("发送 Disco 快照失败")
+        try:
             async for msg in ws:
                 if msg.type == WSMsgType.ERROR:
                     break
@@ -516,6 +605,7 @@ def build_web(app: App):
         c["_qoder_default"] = default_qoder_exe()
         c["_browser_default"] = find_browser()
         c["_logged_in"] = bool(app.cfg.get("bili_cookie"))
+        c["_disco_running"] = bool(getattr(app, "disco_running", False))
         c.pop("bili_cookie", None)
         c["songs"]["_ne_logged_in"] = bool(c["songs"].pop("netease_cookie", ""))
         return web.json_response(c)
@@ -535,6 +625,12 @@ def build_web(app: App):
             app.follow_back.clear()
         if "live2d" in patch:
             app.push("l2d_config", {})
+        if "disco" in patch:
+            app.disco.set_config(app.cfg.get("disco") or {})
+            if app.disco.enabled:
+                app.start_disco_service()
+            else:
+                await app.stop_disco_service()
         if "songs" in patch:
             app.songs._apply_volume()
         if "games" in patch:
@@ -551,7 +647,8 @@ def build_web(app: App):
                 asyncio.create_task(app.disconnect())
         elif str(app.cfg.get("room_id")) != str(old_room) and app.bili.client:
             asyncio.create_task(app.connect())
-        return ok()
+        return ok(_disco_running=bool(getattr(app, "disco_running", False)),
+                  disco_running=bool(getattr(app, "disco_running", False)))
 
     @routes.post("/api/bili/connect")
     async def bili_connect(_):

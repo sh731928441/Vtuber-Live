@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="520" viewBox="0 0 760 520">
+  <defs>
+    <linearGradient id="top" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3d1c56"/>
+      <stop offset="1" stop-color="#171020"/>
+    </linearGradient>
+    <linearGradient id="front" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#321943"/>
+      <stop offset="1" stop-color="#0e0915"/>
+    </linearGradient>
+  </defs>
+  <path d="M74 170H686L738 350H22Z" fill="url(#top)" stroke="#6a3883" stroke-width="8"/>
+  <path d="M22 350H738V504H22Z" fill="url(#front)" stroke="#54285f" stroke-width="8"/>
+  <path d="M74 170H686" stroke="#ff4fc9" stroke-opacity=".72" stroke-width="5"/>
+  <path d="M44 350H716" stroke="#37dfff" stroke-opacity=".75" stroke-width="7"/>
+  <g fill="#0a0710" stroke="#63306c" stroke-width="5">
+    <path d="M104 504V280H178V504Z"/>
+    <path d="M582 504V280H656V504Z"/>
+  </g>
+  <g opacity=".7">
+    <path d="M250 238H510" stroke="#a04fcd" stroke-width="5" stroke-dasharray="16 12"/>
+    <circle cx="250" cy="238" r="11" fill="#ff52c8"/>
+    <circle cx="510" cy="238" r="11" fill="#38dfff"/>
+  </g>
+</svg>

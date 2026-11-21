@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+import re
 import sys
 import threading
 
@@ -19,6 +20,9 @@ DEFAULT_PERSONA = (
     "你是一位活泼可爱、说话自然的虚拟主播，正在直播。"
     "观众的进场、弹幕、礼物、粉丝团等消息会发给你，你要像真人主播一样用口语回应。"
 )
+
+DEFAULT_DISCO_SKIN_PATH = "/disco/assets/role/default.png"
+DISCO_ROLE_ASSET_SUFFIXES = {".png", ".gif", ".jpg", ".jpeg", ".webp", ".svg", ".avif"}
 
 DEFAULTS = {
     "platform": "bilibili",
@@ -215,6 +219,125 @@ DEFAULTS = {
         {"enabled": True, "keywords": "晚安", "match": "contains", "reply": "{name}晚安，做个好梦！", "emotion": "开心"},
         {"enabled": True, "keywords": "生日快乐", "match": "contains", "reply": "谢谢{name}！你也要天天开心哦！", "emotion": "感谢"},
     ],
+    "disco": {
+        "enabled": False,
+        "debug": False,
+        "command_prefix": "/disco",
+        "max_characters": 100,
+        "character_ttl_minutes": 10,
+        "bubble_max_chars": 50,
+        "move_step": 20,
+        "world": {"width": 3840, "height": 1080, "viewport_width": 1920, "viewport_height": 1080},
+        "bands": {
+            "mid": {
+                "z": 1,
+                "x": [260, 3580],
+                "y": [620, 800],
+                "scale": [0.4, 0.5],
+                "brightness": 0.88,
+            },
+            "near": {
+                "z": 2,
+                "x": [140, 3700],
+                "y": [790, 1040],
+                "scale": [0.52, 0.64],
+                "brightness": 1.0,
+            },
+        },
+        "skins": [
+            {"id": "default", "path": DEFAULT_DISCO_SKIN_PATH},
+            {"id": "dog1", "path": "/disco/assets/role/dog1.gif"},
+            {"id": "dog2", "path": "/disco/assets/role/dog2.gif"},
+            {"id": "dog3", "path": "/disco/assets/role/dog3.gif"},
+            {"id": "dog4", "path": "/disco/assets/role/dog4.gif"},
+            {"id": "dsh1", "path": "/disco/assets/role/dsh1.png"},
+        ],
+        "resources": {
+            "ceilingWall": {
+                "path": "/disco/assets/scene/ceiling-wall.svg",
+                "x": 1920,
+                "y": 540,
+                "scale_x": 1,
+                "scale_y": 1,
+                "origin_x": 0.5,
+                "origin_y": 0.5,
+                "opacity": 1,
+                "tint": "#ffffff",
+            },
+            "leftStage": {
+                "path": "/disco/assets/scene/left-stage.svg",
+                "x": 1260,
+                "y": 550,
+                "scale_x": 1,
+                "scale_y": 1,
+                "origin_x": 0.5,
+                "origin_y": 0.5,
+                "opacity": 1,
+                "tint": "#ffffff",
+            },
+            "djBooth": {
+                "path": "/disco/assets/scene/dj-booth.svg",
+                "x": 1920,
+                "y": 530,
+                "scale_x": 1,
+                "scale_y": 1,
+                "origin_x": 0.5,
+                "origin_y": 0.5,
+                "opacity": 1,
+                "tint": "#ffffff",
+            },
+            "rightStage": {
+                "path": "/disco/assets/scene/right-stage.svg",
+                "x": 2580,
+                "y": 550,
+                "scale_x": 1,
+                "scale_y": 1,
+                "origin_x": 0.5,
+                "origin_y": 0.5,
+                "opacity": 1,
+                "tint": "#ffffff",
+            },
+        },
+        "lights": {
+            "count": 5,
+            "base_alpha": 0.38,
+            "breath": 0.1,
+            "drift_x": 46,
+            "drift_y": 14,
+            "colors": ["#31d7ff", "#ff4fca", "#7c62ff", "#ffb347", "#35f2c4"],
+            "background_wash": {
+                "color": "#6d4cff",
+                "alpha": 0.15,
+                "width": 2800,
+                "height": 720,
+                "x": 1920,
+                "y": 300,
+            },
+            "front_alpha": 0.12,
+        },
+        "camera": {
+            "start": {"x": 1920, "y": 540, "zoom": 1.0},
+            "zoom": [1.0, 2.0],
+            "free_pan_seconds": 30,
+            "manual_resume_seconds": 8,
+            "gift_coalesce_ms": 5000,
+            "gift_min_value": 0,
+            "character_shot": {
+                "zoom": 1.6,
+                "transition_ms": 1000,
+                "hold_ms": 3500,
+                "priority": 2,
+            },
+            "dj_shot": {
+                "x": 1920,
+                "y": 370,
+                "zoom": 1.35,
+                "transition_ms": 1000,
+                "hold_ms": 4000,
+                "priority": 3,
+            },
+        },
+    },
     "live2d": {
         "enabled": False,
         "model_dir": "",
@@ -260,6 +383,92 @@ DEFAULTS = {
 _lock = threading.Lock()
 
 
+def _skin_id(value, fallback):
+    clean = re.sub(r"[^0-9A-Za-z_-]+", "-", str(value or "").strip()).strip("-_").lower()
+    return clean or fallback
+
+
+def _skin_items(raw):
+    if isinstance(raw, dict):
+        numeric = sorted(
+            ((key, value) for key, value in raw.items() if str(key).isdigit()),
+            key=lambda item: int(item[0]),
+        )
+        if numeric:
+            return [value for _, value in numeric]
+        return list(raw.values())
+    return list(raw) if isinstance(raw, list) else []
+
+
+def normalize_disco_skins(raw):
+    """Migrate legacy indexed objects and enforce the protected default skin."""
+    specs = []
+    used_ids = {"default"}
+    used_paths = {DEFAULT_DISCO_SKIN_PATH}
+    for item in _skin_items(raw):
+        if isinstance(item, str):
+            item = {"path": item}
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("path") or "").strip().replace("\\", "/")
+        if not path.startswith("/disco/assets/role/") or "/../" in f"/{path}/":
+            continue
+        filename = path.rsplit("/", 1)[-1]
+        stem = filename.rsplit(".", 1)[0]
+        requested_id = str(item.get("id") or "").strip().lower()
+        is_default = requested_id == "default" or stem.casefold() in {"default", "dsh0"}
+        if is_default:
+            continue
+        if path in used_paths:
+            continue
+        skin_id = _skin_id(requested_id or stem, f"skin-{len(specs) + 2}")
+        if skin_id == "default":
+            skin_id = _skin_id(stem, f"skin-{len(specs) + 2}")
+        base_id = skin_id
+        suffix = 2
+        while skin_id in used_ids:
+            skin_id = f"{base_id}-{suffix}"
+            suffix += 1
+        used_ids.add(skin_id)
+        used_paths.add(path)
+        specs.append({"id": skin_id, "path": path})
+    return [{"id": "default", "path": DEFAULT_DISCO_SKIN_PATH}, *specs]
+
+
+def normalize_disco(config_data):
+    disco = config_data.get("disco")
+    if isinstance(disco, dict):
+        disco["skins"] = normalize_disco_skins(disco.get("skins"))
+    return config_data
+
+
+def reset_disco_on_startup(config_data):
+    """Disable Disco for every process launch, regardless of the saved state."""
+    disco = config_data.setdefault("disco", {})
+    was_enabled = bool(disco.get("enabled"))
+    disco["enabled"] = False
+    return was_enabled
+
+
+def disco_role_assets(web_dir=None):
+    role_dir = os.path.join(web_dir or WEB_DIR, "disco", "assets", "role")
+    try:
+        names = os.listdir(role_dir)
+    except OSError:
+        return []
+    files = []
+    for name in names:
+        full = os.path.join(role_dir, name)
+        if not os.path.isfile(full):
+            continue
+        ext = os.path.splitext(name)[1].lower()
+        if ext not in DISCO_ROLE_ASSET_SUFFIXES:
+            continue
+        files.append({"name": name, "path": f"/disco/assets/role/{name}"})
+    files.sort(key=lambda item: (item["name"].casefold() != "default.png", item["name"].casefold()))
+    return files
+
+
 def _merge(base, override):
     out = copy.deepcopy(base)
     for k, v in (override or {}).items():
@@ -278,7 +487,7 @@ def load():
                 data = json.load(f)
         except (OSError, ValueError):
             os.replace(CONFIG_PATH, CONFIG_PATH + ".broken")
-    cfg = _merge(DEFAULTS, data)
+    cfg = normalize_disco(_merge(DEFAULTS, data))
     save(cfg)
     return cfg
 
@@ -292,4 +501,4 @@ def save(cfg):
 
 
 def merge(cfg, patch):
-    return _merge(cfg, patch)
+    return normalize_disco(_merge(cfg, patch))

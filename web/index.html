@@ -21,6 +21,7 @@
   <button data-tab="ai">AI 设置</button>
   <button data-tab="voice">语音设置</button>
   <button data-tab="l2d">Live2D 皮套</button>
+  <button data-tab="disco">Disco 舞台</button>
   <button data-tab="obs">OBS 字幕</button>
   <button data-tab="iframe-section" data-url="/slay-the-spire-2">杀戮尖塔2</button>
   <div class="spacer"></div>
@@ -580,6 +581,81 @@
   </div>
 </section>
 
+<!-- ========== Disco ========== -->
+<section id="disco">
+  <h2>Disco 舞台</h2>
+  <div class="card">
+    <div class="row">
+      <span class="btn p" id="discoPower">启动</span>
+      <span class="hint" id="discoServiceState">Disco 服务已暂停</span>
+      <label class="c"><input type="checkbox" data-k="disco.debug">显示调试信息与操作提示</label>
+      <span style="flex:1"></span>
+      <span class="btn b" id="discoOpen">打开 Disco 画面</span>
+    </div>
+    <p>在 OBS / 直播姬中添加 1920×1080 的 <b>浏览器源</b>，网址填：</p>
+    <div class="row"><input id="discoUrl" readonly><span class="btn" data-copy="#discoUrl">复制</span></div>
+    <p class="hint">启动后才会创建后端清理任务和浏览器渲染场景；暂停后停止 Disco 动画循环与角色更新，不影响 AI、语音和 Live2D。默认镜头居中并缓慢左右巡游，鼠标拖拽、滚轮缩放后，停止操作 8 秒会继续自动运镜。</p>
+  </div>
+  <div class="card">
+    <h3>角色与舞池</h3>
+    <div class="row">
+      <label class="f">同屏角色上限<input type="number" min="1" max="1000" data-k="disco.max_characters"></label>
+      <label class="f">无互动销毁分钟<input type="number" min="1" step="1" data-k="disco.character_ttl_minutes"></label>
+      <label class="f">气泡最大字数<input type="number" min="1" max="200" data-k="disco.bubble_max_chars"></label>
+      <label class="f">默认移动距离<input type="number" min="1" data-k="disco.move_step"></label>
+    </div>
+    <p class="hint">观众只在中景和近景活动：中景约 y=620–800，近景约 y=790–1040。背景墙、中央 DJ 台和左右舞台分别加载，不包含 LED 大屏和前景遮挡。</p>
+  </div>
+  <div class="card">
+    <h3>分层资源</h3>
+    <div class="row">
+      <label class="f">远景墙<input data-k="disco.resources.ceilingWall.path"></label>
+      <label class="f">中央 DJ 台<input data-k="disco.resources.djBooth.path"></label>
+    </div>
+    <div class="row">
+      <label class="f">左侧舞台<input data-k="disco.resources.leftStage.path"></label>
+      <label class="f">右侧舞台<input data-k="disco.resources.rightStage.path"></label>
+    </div>
+    <h3 style="margin-top:18px">角色皮肤</h3>
+    <div id="discoSkinList"></div>
+    <div class="row" style="margin-top:10px">
+      <label class="f">新增皮肤<select id="discoSkinPick"></select></label>
+      <span class="btn b" id="discoSkinAdd" style="margin-top:18px">+ 新增皮肤</span>
+      <span class="btn" id="discoSkinRefresh" style="margin-top:18px">刷新资源列表</span>
+    </div>
+    <p class="hint">路径相对于本机服务，例如 <code>/disco/assets/scene/dj-booth.svg</code>。修改单项资源只替换对应层，不需要重新烘焙整张背景。</p>
+    <p class="hint">默认皮肤固定使用 <code>/disco/assets/role/default.png</code>，不能从列表删除；需要更换时直接替换该文件。其他角色图片放在 <code>disco-src/public/assets/role/</code>，构建后可在这里新增。</p>
+  </div>
+  <div class="card">
+    <h3>柔光</h3>
+    <div class="row">
+      <label class="f">光源数量 <b data-show="disco.lights.count"></b><input type="range" min="4" max="6" step="1" data-k="disco.lights.count"></label>
+      <label class="f">基础亮度 <b data-show="disco.lights.base_alpha"></b><input type="range" min="0.1" max="0.7" step="0.01" data-k="disco.lights.base_alpha"></label>
+      <label class="f">呼吸幅度 <b data-show="disco.lights.breath"></b><input type="range" min="0" max="0.3" step="0.01" data-k="disco.lights.breath"></label>
+      <label class="f">横向漂移 <b data-show="disco.lights.drift_x"></b><input type="range" min="0" max="100" step="1" data-k="disco.lights.drift_x"></label>
+      <label class="f">观众区柔光 <b data-show="disco.lights.front_alpha"></b><input type="range" min="0" max="0.3" step="0.01" data-k="disco.lights.front_alpha"></label>
+    </div>
+    <div class="row">
+      <label class="f">颜色（每行一个）<textarea data-k="disco.lights.colors" data-list="1" style="min-height:84px"></textarea></label>
+    </div>
+  </div>
+  <div class="card">
+    <h3>镜头</h3>
+    <div class="row">
+      <label class="f">自由运镜单程秒数<input type="number" min="5" step="1" data-k="disco.camera.free_pan_seconds"></label>
+      <label class="f">手动后恢复秒数<input type="number" min="1" step="1" data-k="disco.camera.manual_resume_seconds"></label>
+      <label class="f">礼物镜头合并毫秒<input type="number" min="0" step="500" data-k="disco.camera.gift_coalesce_ms"></label>
+      <label class="f">礼物最低价值<input type="number" min="0" step="0.1" data-k="disco.camera.gift_min_value"></label>
+    </div>
+    <div class="row">
+      <label class="f">角色特写缩放<input type="number" min="1" max="2" step="0.05" data-k="disco.camera.character_shot.zoom"></label>
+      <label class="f">角色特写停留毫秒<input type="number" min="500" step="500" data-k="disco.camera.character_shot.hold_ms"></label>
+      <label class="f">DJ 镜头缩放<input type="number" min="1" max="2" step="0.05" data-k="disco.camera.dj_shot.zoom"></label>
+      <label class="f">DJ 镜头停留毫秒<input type="number" min="500" step="500" data-k="disco.camera.dj_shot.hold_ms"></label>
+    </div>
+  </div>
+</section>
+
 <!-- ========== Live2D ========== -->
 <section id="l2d">
   <h2>Live2D 皮套</h2>
@@ -740,7 +816,78 @@ $('#evCards').innerHTML = EV.map(([k, name, nums, checks]) => `
 
 // ---------- 配置绑定 ----------
 const getPath = (o, p) => p.split('.').reduce((a, k) => a?.[k], o);
-function setPatch(path, val) { const ks = path.split('.'), patch = {}; let cur = patch; ks.forEach((k, i) => { if (i === ks.length - 1) cur[k] = val; else cur = cur[k] = {}; }); return patch; }
+function setPatch(path, val) {
+  const ks = path.split('.');
+  const make = i => /^\d+$/.test(ks[i]) ? [] : {};
+  const patch = make(0);
+  let cur = patch;
+  ks.forEach((k, i) => {
+    const key = /^\d+$/.test(k) ? Number(k) : k;
+    if (i === ks.length - 1) cur[key] = val;
+    else cur = cur[key] = make(i + 1);
+  });
+  return patch;
+}
+const DISCO_DEFAULT_SKIN = '/disco/assets/role/default.png';
+let DISCO_SKIN_FILES = [];
+function discoSkins() {
+  const raw = Array.isArray(CFG.disco?.skins) ? CFG.disco.skins : [];
+  const seen = new Set(['default']);
+  const skins = [{id: 'default', path: DISCO_DEFAULT_SKIN}];
+  for (const item of raw) {
+    if (!item || !item.path || item.id === 'default' || item.path === DISCO_DEFAULT_SKIN) continue;
+    let id = String(item.id || item.path.split('/').pop().replace(/\.[^.]+$/, '') || 'skin')
+      .replace(/[^0-9A-Za-z_-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'skin';
+    if (id === 'default') id = 'skin';
+    const base = id;
+    let n = 2;
+    while (seen.has(id)) id = `${base}-${n++}`;
+    seen.add(id);
+    skins.push({id, path: String(item.path)});
+  }
+  return skins;
+}
+function renderDiscoSkins() {
+  const skins = discoSkins();
+  $('#discoSkinList').innerHTML = skins.map((skin, i) => `
+    <div class="disco-skin-row">
+      <img class="disco-skin-thumb" src="${esc(skin.path)}" alt="" onerror="this.style.visibility='hidden'">
+      <span class="disco-skin-info">
+        <b>${skin.id === 'default' ? '默认皮肤' : esc(skin.id)}</b>
+        <code>${esc(skin.path)}</code>
+        <span class="hint">${skin.id === 'default' ? '固定入口，不可从列表删除；替换 default.png 即可换图' : '用户创建角色时随机选用'}</span>
+      </span>
+      ${skin.id === 'default'
+        ? '<span class="tag warn">不可删除</span>'
+        : `<span class="btn sm r" data-skin-delete="${i}">删除</span>`}
+    </div>`).join('');
+  const used = new Set(skins.map(skin => skin.path));
+  const available = DISCO_SKIN_FILES.filter(file => !used.has(file.path));
+  $('#discoSkinPick').innerHTML = available.length
+    ? '<option value="">选择 disco-src/public/assets/role 中的图片</option>' +
+      available.map(file => `<option value="${esc(file.path)}">${esc(file.name)}</option>`).join('')
+    : '<option value="">没有可新增的角色图片</option>';
+  $('#discoSkinAdd').setAttribute('aria-disabled', available.length ? 'false' : 'true');
+}
+async function loadDiscoSkinFiles() {
+  try {
+    const result = await api('/api/disco/skins');
+    DISCO_SKIN_FILES = Array.isArray(result.files) ? result.files : [];
+  } catch (_) {
+    DISCO_SKIN_FILES = [];
+  }
+  renderDiscoSkins();
+}
+function renderDiscoPower(running) {
+  const button = $('#discoPower');
+  const status = $('#discoServiceState');
+  button.textContent = running ? '暂停' : '启动';
+  button.dataset.running = running ? '1' : '0';
+  button.classList.toggle('p', !running);
+  button.classList.toggle('r', running);
+  status.textContent = running ? 'Disco 服务运行中' : 'Disco 服务已暂停';
+  status.style.color = running ? 'var(--green)' : '';
+}
 function fillForm() {
   if (!CFG || !CFG.ai) return; // 配置还没加载完（loadWeights / loadDevices 可能先回来）
   $$('[data-k]').forEach(el => {
@@ -767,6 +914,8 @@ function fillForm() {
   $('#dyBrowserBox').style.display = dyMode === 'browser' ? '' : 'none';
   $('#dyRelayBox').style.display = dyMode === 'relay' ? '' : 'none';
   $('#dyExe').placeholder = CFG._browser_default || '留空自动查找 Edge / Chrome';
+  renderDiscoPower(Boolean(CFG._disco_running ?? CFG.disco?.enabled));
+  renderDiscoSkins();
   sessionPlanText();
 }
 let saveTimer = null, pending = {};
@@ -854,6 +1003,15 @@ function handle(m) {
     case 'speak_end': $('#nowSpeaking').innerHTML = '<span class="dim">当前没有在说话</span>'; replyEls[m.id]?.classList.remove('speaking'); break;
     case 'songs': renderSongs(m); break;
     case 'game': renderGame(m); break;
+    case 'disco':
+      if (m.action === 'snapshot' || m.action === 'config') {
+        const running = Boolean(m.enabled);
+        CFG.disco = CFG.disco || {};
+        CFG.disco.enabled = running;
+        CFG._disco_running = running;
+        renderDiscoPower(running);
+      }
+      break;
   }
 }
 // ---------- 本场统计（Token / 时长 / 礼物） ----------
@@ -1168,6 +1326,59 @@ $('#fixedAdd').onclick = () => saveNow({fixed_replies: [...collectFixed(), {enab
 $('#l2dUrl').value = `${location.origin}/live2d`;
 $('#l2dPreview').onclick = () => window.open('/live2d?bg=303848', 'l2dprev', 'width=900,height=900');
 $('#l2dBubbleBtn').onclick = () => api('/api/l2d/test', {text: $('#l2dBubbleTest').value});
+$('#discoUrl').value = `${location.origin}/disco`;
+$('#discoOpen').onclick = () => window.open('/disco', 'discoprev', 'width=1280,height=720');
+$('#discoPower').onclick = async () => {
+  const button = $('#discoPower');
+  if (button.dataset.busy === '1') return;
+  button.dataset.busy = '1';
+  const running = button.dataset.running === '1';
+  button.textContent = '处理中…';
+  try {
+    clearTimeout(saveTimer);
+    if (Object.keys(pending).length) {
+      const changes = pending;
+      pending = {};
+      await api('/api/config', changes);
+    }
+    const result = await api('/api/config', {disco: {enabled: !running}});
+    if (!result.ok) throw new Error(result.error || '切换 Disco 服务失败');
+    CFG.disco.enabled = Boolean(result.disco_running);
+    CFG._disco_running = Boolean(result.disco_running);
+    renderDiscoPower(result.disco_running);
+    toast(result.disco_running ? 'Disco 服务已启动' : 'Disco 服务已暂停');
+  } catch (error) {
+    button.textContent = running ? '暂停' : '启动';
+    toast(`切换失败：${error.message || error}`);
+  } finally {
+    delete button.dataset.busy;
+  }
+};
+$('#discoSkinAdd').onclick = async () => {
+  const path = $('#discoSkinPick').value;
+  if (!path) return toast('请先选择一张角色图片');
+  const skins = discoSkins();
+  if (skins.some(skin => skin.path === path)) return toast('这张角色图片已经在列表中');
+  const stem = path.split('/').pop().replace(/\.[^.]+$/, '');
+  let id = stem.replace(/[^0-9A-Za-z_-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'skin';
+  if (id === 'default') id = 'skin';
+  const ids = new Set(skins.map(skin => skin.id));
+  const base = id;
+  let n = 2;
+  while (ids.has(id)) id = `${base}-${n++}`;
+  await saveNow({disco: {skins: [...skins, {id, path}]}}, '角色皮肤已新增');
+  renderDiscoSkins();
+};
+$('#discoSkinList').onclick = async e => {
+  const index = e.target.dataset?.skinDelete;
+  if (index === undefined) return;
+  const skins = discoSkins();
+  if (!skins[Number(index)] || skins[Number(index)].id === 'default') return;
+  skins.splice(Number(index), 1);
+  await saveNow({disco: {skins}}, '角色皮肤已删除');
+  renderDiscoSkins();
+};
+$('#discoSkinRefresh').onclick = () => loadDiscoSkinFiles();
 
 // ---------- 模型列表 ----------
 $$('[data-listmodels]').forEach(b => b.onclick = async () => {
@@ -1360,7 +1571,7 @@ async function saveAuto() {
 $('#apRefresh').onclick = loadPlaylists;
 
 api('/api/ai/cli/presets').then(r => { CLI_PRESETS = r; fillForm(); });
-loadConfig().then(() => { loadWeights(); loadDevices(); loadL2d(); loadPlaylists(); loadGames(); api('/api/songs/state').then(renderSongs); });
+loadConfig().then(() => { loadWeights(); loadDevices(); loadL2d(); loadDiscoSkinFiles(); loadPlaylists(); loadGames(); api('/api/songs/state').then(renderSongs); });
 connectWs();
 </script>
 </body>
