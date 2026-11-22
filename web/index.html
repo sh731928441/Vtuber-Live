@@ -960,11 +960,9 @@ function renderDiscoItems() {
         <label class="f">图片路径<input data-disco-item-index="${index}" data-disco-item-field="path" value="${esc(item.path)}" placeholder="assets/scene/item.png"></label>
         <label class="f">X<input type="number" step="1" data-disco-item-index="${index}" data-disco-item-field="x" value="${Number(item.x)}"></label>
         <label class="f">Y<input type="number" step="1" data-disco-item-index="${index}" data-disco-item-field="y" value="${Number(item.y)}"></label>
-      </div>
-      <div class="row">
         <label class="f">宽度(px)<input type="number" min="1" step="1" data-disco-item-index="${index}" data-disco-item-field="width" value="${Number(item.width)}"></label>
         <label class="f">高度(px)<input type="number" min="1" step="1" data-disco-item-index="${index}" data-disco-item-field="height" value="${Number(item.height)}"></label>
-        <label class="c" style="margin-top:18px"><input type="checkbox" data-disco-item-index="${index}" data-disco-item-field="lock_aspect" ${item.lock_aspect !== false ? 'checked' : ''}>锁定宽高比例</label>
+        <label class="c" style="margin-top:18px"><input type="checkbox" data-disco-item-index="${index}" data-disco-item-field="lock_aspect" ${item.lock_aspect !== false ? 'checked' : ''}>锁定比例</label>
         <label class="c" style="margin-top:18px"><input type="checkbox" data-disco-item-index="${index}" data-disco-item-field="flip_x" ${item.flip_x ? 'checked' : ''}>水平翻转</label>
       </div>
     </div>`).join('');
