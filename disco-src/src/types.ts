@@ -14,9 +14,14 @@ export interface BandConfig {
 }
 
 export interface ResourceSpec {
+  id?: string;
   path: string;
   x: number;
   y: number;
+  width: number;
+  height: number;
+  lock_aspect: boolean;
+  flip_x?: boolean;
   scale_x: number;
   scale_y: number;
   origin_x: number;
@@ -24,6 +29,10 @@ export interface ResourceSpec {
   opacity: number;
   tint: string;
   visible?: boolean;
+}
+
+export interface SceneItemSpec extends ResourceSpec {
+  id: string;
 }
 
 export interface SkinSpec {
@@ -61,6 +70,7 @@ export interface ShotConfig {
 export interface CameraConfig {
   start: { x: number; y: number; zoom: number };
   zoom: [number, number];
+  free_pan_enabled: boolean;
   free_pan_seconds: number;
   manual_resume_seconds: number;
   gift_coalesce_ms: number;
@@ -81,6 +91,7 @@ export interface DiscoConfig {
   bands: Record<"mid" | "near", BandConfig>;
   skins: SkinSpec[];
   resources: Record<string, ResourceSpec>;
+  items: SceneItemSpec[];
   lights: LightConfig;
   camera: CameraConfig;
 }
@@ -147,7 +158,7 @@ export interface CameraState {
   zoom: number;
 }
 
-export type CameraMode = "free" | "manual" | "scripted";
+export type CameraMode = "free" | "manual" | "scripted" | "static";
 
 export interface CameraShot {
   target: "character" | "dj";

@@ -1,5 +1,6 @@
 import copy
 import json
+import math
 import os
 import re
 import sys
@@ -23,6 +24,17 @@ DEFAULT_PERSONA = (
 
 DEFAULT_DISCO_SKIN_PATH = "/disco/assets/role/default.png"
 DISCO_ROLE_ASSET_SUFFIXES = {".png", ".gif", ".jpg", ".jpeg", ".webp", ".svg", ".avif"}
+DISCO_FIXED_RESOURCE_IDS = ("ceilingWall", "djBooth")
+DISCO_SCENE_ASSET_SUFFIXES = DISCO_ROLE_ASSET_SUFFIXES
+DISCO_ITEMS_LIMIT = 50
+
+
+def _finite_number(value, default=0.0):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return number if math.isfinite(number) else default
 
 DEFAULTS = {
     "platform": "bilibili",
@@ -257,17 +269,9 @@ DEFAULTS = {
                 "path": "/disco/assets/scene/ceiling-wall.svg",
                 "x": 1920,
                 "y": 540,
-                "scale_x": 1,
-                "scale_y": 1,
-                "origin_x": 0.5,
-                "origin_y": 0.5,
-                "opacity": 1,
-                "tint": "#ffffff",
-            },
-            "leftStage": {
-                "path": "/disco/assets/scene/left-stage.svg",
-                "x": 1260,
-                "y": 550,
+                "width": 3840,
+                "height": 1080,
+                "lock_aspect": True,
                 "scale_x": 1,
                 "scale_y": 1,
                 "origin_x": 0.5,
@@ -279,17 +283,9 @@ DEFAULTS = {
                 "path": "/disco/assets/scene/dj-booth.svg",
                 "x": 1920,
                 "y": 530,
-                "scale_x": 1,
-                "scale_y": 1,
-                "origin_x": 0.5,
-                "origin_y": 0.5,
-                "opacity": 1,
-                "tint": "#ffffff",
-            },
-            "rightStage": {
-                "path": "/disco/assets/scene/right-stage.svg",
-                "x": 2580,
-                "y": 550,
+                "width": 380,
+                "height": 160,
+                "lock_aspect": True,
                 "scale_x": 1,
                 "scale_y": 1,
                 "origin_x": 0.5,
@@ -298,6 +294,7 @@ DEFAULTS = {
                 "tint": "#ffffff",
             },
         },
+        "items": [],
         "lights": {
             "count": 5,
             "base_alpha": 0.38,
@@ -318,6 +315,7 @@ DEFAULTS = {
         "camera": {
             "start": {"x": 1920, "y": 540, "zoom": 1.0},
             "zoom": [1.0, 2.0],
+            "free_pan_enabled": True,
             "free_pan_seconds": 30,
             "manual_resume_seconds": 8,
             "gift_coalesce_ms": 5000,
@@ -435,11 +433,144 @@ def normalize_disco_skins(raw):
     return [{"id": "default", "path": DEFAULT_DISCO_SKIN_PATH}, *specs]
 
 
+def normalize_disco_asset_path(value):
+    raw = str(value or "").strip().replace("\\", "/")
+    if not raw or re.match(r"^[a-z][a-z0-9+.-]*:", raw, re.IGNORECASE) or raw.startswith("//"):
+        return ""
+    if raw.startswith("/disco/assets/"):
+        path = raw
+    elif raw.startswith("/assets/"):
+        path = "/disco" + raw
+    elif raw.startswith("assets/"):
+        path = "/disco/" + raw
+    elif raw.startswith("/"):
+        return ""
+    elif raw.startswith("scene/"):
+        path = "/disco/assets/" + raw
+    else:
+        path = "/disco/assets/" + raw.lstrip("./")
+    parts = path.split("/")
+    if ".." in parts or "." in parts:
+        return ""
+    if os.path.splitext(path)[1].lower() not in DISCO_SCENE_ASSET_SUFFIXES:
+        return ""
+    return path
+
+
+def _scene_number(value, default, minimum=None):
+    number = _finite_number(value, default)
+    if minimum is not None:
+        number = max(minimum, number)
+    return number
+
+
+def _normalize_scene_item(raw, fallback_id=""):
+    if not isinstance(raw, dict):
+        return None
+    item = dict(raw)
+    item["path"] = normalize_disco_asset_path(item.get("path"))
+    item["id"] = _skin_id(item.get("id") or fallback_id, fallback_id or "item")
+    item["x"] = _scene_number(item.get("x"), 1920)
+    item["y"] = _scene_number(item.get("y"), 540)
+    item["width"] = _scene_number(item.get("width"), 300, 1)
+    item["height"] = _scene_number(item.get("height"), 300, 1)
+    item["lock_aspect"] = bool(item.get("lock_aspect", True))
+    item["flip_x"] = bool(item.get("flip_x", False))
+    item["scale_x"] = _scene_number(item.get("scale_x"), 1)
+    item["scale_y"] = _scene_number(item.get("scale_y"), 1)
+    item["origin_x"] = _scene_number(item.get("origin_x"), 0.5)
+    item["origin_y"] = _scene_number(item.get("origin_y"), 0.5)
+    item["opacity"] = min(1.0, max(0.0, _scene_number(item.get("opacity"), 1)))
+    item["tint"] = str(item.get("tint") or "#ffffff")
+    item["visible"] = bool(item.get("visible", True))
+    return item
+
+
 def normalize_disco(config_data):
     disco = config_data.get("disco")
     if isinstance(disco, dict):
         disco["skins"] = normalize_disco_skins(disco.get("skins"))
+        resources = disco.get("resources") if isinstance(disco.get("resources"), dict) else {}
+        normalized_resources = {}
+        for resource_id in DISCO_FIXED_RESOURCE_IDS:
+            raw = resources.get(resource_id)
+            if isinstance(raw, dict):
+                normalized = _normalize_scene_item(raw, resource_id)
+                normalized.pop("id", None)
+                normalized_resources[resource_id] = normalized
+        disco["resources"] = normalized_resources
+
+        items = []
+        used_ids = set()
+        raw_items = disco.get("items")
+        for index, raw in enumerate(raw_items if isinstance(raw_items, list) else []):
+            item = _normalize_scene_item(raw, f"item-{index + 1}")
+            if not item:
+                continue
+            base_id = item["id"]
+            suffix = 2
+            while item["id"] in used_ids:
+                item["id"] = f"{base_id}-{suffix}"
+                suffix += 1
+            used_ids.add(item["id"])
+            items.append(item)
+        disco["items"] = items
     return config_data
+
+
+def validate_disco(disco):
+    if not isinstance(disco, dict):
+        return "Disco 配置必须是对象"
+    world = disco.get("world") if isinstance(disco.get("world"), dict) else {}
+    world_width = _finite_number(world.get("width"), 3840)
+    world_height = _finite_number(world.get("height"), 1080)
+    if world_width <= 0 or world_height <= 0:
+        return "Disco 世界尺寸必须大于 0"
+
+    resources = disco.get("resources") if isinstance(disco.get("resources"), dict) else {}
+    for resource_id, label in (("ceilingWall", "远景墙"), ("djBooth", "DJ 台")):
+        spec = resources.get(resource_id)
+        if not isinstance(spec, dict) or not spec.get("path"):
+            return f"{label}必须填写有效的本地图片路径"
+        if _scene_number(spec.get("width"), 0) <= 0 or _scene_number(spec.get("height"), 0) <= 0:
+            return f"{label}的宽度和高度必须大于 0"
+        if not math.isfinite(_finite_number(spec.get("x"), float("nan"))) or not math.isfinite(
+            _finite_number(spec.get("y"), float("nan"))
+        ):
+            return f"{label}的 X/Y 必须是有效数字"
+
+    bands = disco.get("bands") if isinstance(disco.get("bands"), dict) else {}
+    for band_id, label in (("mid", "中景"), ("near", "近景")):
+        band = bands.get(band_id)
+        if not isinstance(band, dict):
+            return f"{label}活动带配置缺失"
+        for axis, limit, axis_label in (("x", world_width, "X"), ("y", world_height, "Y")):
+            values = band.get(axis)
+            if not isinstance(values, list) or len(values) != 2:
+                return f"{label}活动带的 {axis_label} 范围格式无效"
+            low = _finite_number(values[0], float("nan"))
+            high = _finite_number(values[1], float("nan"))
+            if not math.isfinite(low) or not math.isfinite(high) or low < 0 or high > limit or low >= high:
+                return f"{label}活动带的 {axis_label} 范围无效"
+
+    items = disco.get("items") if isinstance(disco.get("items"), list) else []
+    if len(items) > DISCO_ITEMS_LIMIT:
+        return f"动态物品最多 {DISCO_ITEMS_LIMIT} 个"
+    seen_ids = set()
+    for index, item in enumerate(items):
+        if not isinstance(item, dict) or not item.get("path"):
+            return f"第 {index + 1} 个动态物品路径无效"
+        item_id = str(item.get("id") or "").strip()
+        if not item_id or item_id in seen_ids:
+            return f"第 {index + 1} 个动态物品 ID 无效或重复"
+        seen_ids.add(item_id)
+        if _scene_number(item.get("width"), 0) <= 0 or _scene_number(item.get("height"), 0) <= 0:
+            return f"第 {index + 1} 个动态物品宽高必须大于 0"
+        if not math.isfinite(_finite_number(item.get("x"), float("nan"))) or not math.isfinite(
+            _finite_number(item.get("y"), float("nan"))
+        ):
+            return f"第 {index + 1} 个动态物品 X/Y 必须是有效数字"
+    return None
 
 
 def reset_disco_on_startup(config_data):

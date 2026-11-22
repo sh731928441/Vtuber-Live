@@ -50,6 +50,9 @@ export class CharacterLayer {
           path: skin.path,
           x: 0,
           y: 0,
+          width: 1,
+          height: 1,
+          lock_aspect: false,
           scale_x: 1,
           scale_y: 1,
           origin_x: 0.5,
@@ -59,7 +62,7 @@ export class CharacterLayer {
         },
       ]),
     );
-    const result = await loadResourceManifest(resources, async (path) => {
+    const result = await loadResourceManifest<HTMLImageElement>(resources, async (path) => {
       const response = await fetch(path, { cache: "no-store" });
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);

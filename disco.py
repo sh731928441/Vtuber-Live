@@ -135,7 +135,10 @@ class DiscoManager:
         if was_enabled and not is_enabled:
             self.characters.clear()
         self._log("info", f"Disco 配置已更新：{'启用' if is_enabled else '关闭'}")
-        return self._publish("config", enabled=is_enabled, config=config)
+        message = self._publish("config", enabled=is_enabled, config=config)
+        if is_enabled:
+            self.clamp_all_characters()
+        return message
 
     def snapshot(self, *, emit: bool = True) -> dict[str, Any]:
         now = self._clock()
@@ -196,6 +199,28 @@ class DiscoManager:
             min(x1, max(x0, _finite_number(x))),
             min(y1, max(y0, _finite_number(y))),
         )
+
+    def clamp_all_characters(self) -> list[dict[str, Any]]:
+        messages = []
+        for character in self.characters.values():
+            clamped = self.clamp_to_band(character.band, character.x, character.y)
+            if clamped is None:
+                continue
+            x, y = clamped
+            if abs(x - character.x) < 0.005 and abs(y - character.y) < 0.005:
+                continue
+            character.x = x
+            character.y = y
+            messages.append(
+                self._publish(
+                    "move",
+                    uid=character.key,
+                    x=round(character.x, 2),
+                    y=round(character.y, 2),
+                    reason="band_config",
+                )
+            )
+        return messages
 
     def _choose_skin(self, requested: str = "") -> str:
         skins = self.cfg.get("skins") or []

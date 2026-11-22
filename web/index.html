@@ -604,18 +604,30 @@
       <label class="f">气泡最大字数<input type="number" min="1" max="200" data-k="disco.bubble_max_chars"></label>
       <label class="f">默认移动距离<input type="number" min="1" data-k="disco.move_step"></label>
     </div>
-    <p class="hint">观众只在中景和近景活动：中景约 y=620–800，近景约 y=790–1040。背景墙、中央 DJ 台和左右舞台分别加载，不包含 LED 大屏和前景遮挡。</p>
+    <h3 style="margin-top:16px">活动范围</h3>
+    <div class="row">
+      <label class="f">中景最小 X<input type="number" data-k="disco.bands.mid.x.0"></label>
+      <label class="f">中景最大 X<input type="number" data-k="disco.bands.mid.x.1"></label>
+      <label class="f">中景最小 Y<input type="number" data-k="disco.bands.mid.y.0"></label>
+      <label class="f">中景最大 Y<input type="number" data-k="disco.bands.mid.y.1"></label>
+    </div>
+    <div class="row">
+      <label class="f">近景最小 X<input type="number" data-k="disco.bands.near.x.0"></label>
+      <label class="f">近景最大 X<input type="number" data-k="disco.bands.near.x.1"></label>
+      <label class="f">近景最小 Y<input type="number" data-k="disco.bands.near.y.0"></label>
+      <label class="f">近景最大 Y<input type="number" data-k="disco.bands.near.y.1"></label>
+    </div>
+    <p class="hint">坐标是角色脚底位置。范围缩小时，超界角色会立即夹回所属中景或近景活动带；不会在中景和近景之间穿梭。</p>
   </div>
   <div class="card">
     <h3>分层资源</h3>
+    <div id="discoFixedResources"></div>
+    <h3 style="margin-top:18px">动态物品</h3>
     <div class="row">
-      <label class="f">远景墙<input data-k="disco.resources.ceilingWall.path"></label>
-      <label class="f">中央 DJ 台<input data-k="disco.resources.djBooth.path"></label>
+      <label class="f">新增物品路径<input id="discoItemPath" placeholder="assets/scene/speaker.png"></label>
+      <span class="btn b" id="discoItemAdd" style="margin-top:18px">+ 新增物品</span>
     </div>
-    <div class="row">
-      <label class="f">左侧舞台<input data-k="disco.resources.leftStage.path"></label>
-      <label class="f">右侧舞台<input data-k="disco.resources.rightStage.path"></label>
-    </div>
+    <div id="discoItems"></div>
     <h3 style="margin-top:18px">角色皮肤</h3>
     <div id="discoSkinList"></div>
     <div class="row" style="margin-top:10px">
@@ -623,7 +635,8 @@
       <span class="btn b" id="discoSkinAdd" style="margin-top:18px">+ 新增皮肤</span>
       <span class="btn" id="discoSkinRefresh" style="margin-top:18px">刷新资源列表</span>
     </div>
-    <p class="hint">路径相对于本机服务，例如 <code>/disco/assets/scene/dj-booth.svg</code>。修改单项资源只替换对应层，不需要重新烘焙整张背景。</p>
+    <p class="hint">动态物品始终位于观众后方；列表顶部为最高物品层级，可使用上移、下移调整。DJ 台位于所有角色上方、前景柔光下方。</p>
+    <p class="hint">路径相对于本机服务，例如 <code>assets/scene/speaker.png</code> 会规范为 <code>/disco/assets/scene/speaker.png</code>。图片需放入 <code>disco-src/public/assets/</code> 并重新构建。</p>
     <p class="hint">默认皮肤固定使用 <code>/disco/assets/role/default.png</code>，不能从列表删除；需要更换时直接替换该文件。其他角色图片放在 <code>disco-src/public/assets/role/</code>，构建后可在这里新增。</p>
   </div>
   <div class="card">
@@ -641,6 +654,10 @@
   </div>
   <div class="card">
     <h3>镜头</h3>
+    <div class="row">
+      <label class="c"><input type="checkbox" data-k="disco.camera.free_pan_enabled">开启自由运镜</label>
+      <span style="flex:1"></span>
+    </div>
     <div class="row">
       <label class="f">自由运镜单程秒数<input type="number" min="5" step="1" data-k="disco.camera.free_pan_seconds"></label>
       <label class="f">手动后恢复秒数<input type="number" min="1" step="1" data-k="disco.camera.manual_resume_seconds"></label>
@@ -888,8 +905,108 @@ function renderDiscoPower(running) {
   status.textContent = running ? 'Disco 服务运行中' : 'Disco 服务已暂停';
   status.style.color = running ? 'var(--green)' : '';
 }
+const DISCO_FIXED_RESOURCES = [
+  {id: 'ceilingWall', label: '远景墙'},
+  {id: 'djBooth', label: '中央 DJ 台'},
+];
+function normalizeDiscoAssetPath(value) {
+  let path = String(value || '').trim().replace(/\\/g, '/');
+  if (!path || /^[a-z][a-z0-9+.-]*:/i.test(path) || path.startsWith('//')) return '';
+  if (path.startsWith('/disco/assets/')) {}
+  else if (path.startsWith('/assets/')) path = '/disco' + path;
+  else if (path.startsWith('assets/')) path = '/disco/' + path;
+  else if (path.startsWith('/')) return '';
+  else if (path.startsWith('scene/')) path = '/disco/assets/' + path;
+  else path = '/disco/assets/' + path.replace(/^\.\/+/, '');
+  if (path.split('/').some(part => part === '..' || part === '.')) return '';
+  return path;
+}
+function renderDiscoFixedResources() {
+  $('#discoFixedResources').innerHTML = DISCO_FIXED_RESOURCES.map(({id, label}) => {
+    const base = `disco.resources.${id}`;
+    return `
+      <div class="card" style="margin:0 0 12px;padding:14px;background:rgba(255,255,255,.025)">
+        <h3>${label}</h3>
+        <div class="row">
+          <label class="f">图片路径<input data-k="${base}.path" data-disco-path-group="${base}" placeholder="assets/scene/item.png"></label>
+          <label class="f">X<input type="number" step="1" data-k="${base}.x"></label>
+          <label class="f">Y<input type="number" step="1" data-k="${base}.y"></label>
+        </div>
+        <div class="row">
+          <label class="f">宽度(px)<input type="number" min="1" step="1" data-k="${base}.width" data-disco-aspect-group="${base}" data-disco-aspect-dim="width"></label>
+          <label class="f">高度(px)<input type="number" min="1" step="1" data-k="${base}.height" data-disco-aspect-group="${base}" data-disco-aspect-dim="height"></label>
+          <label class="c" style="margin-top:18px"><input type="checkbox" data-k="${base}.lock_aspect">锁定宽高比例</label>
+        </div>
+      </div>`;
+  }).join('');
+}
+function renderDiscoItems() {
+  const items = Array.isArray(CFG.disco?.items) ? CFG.disco.items : [];
+  if (!items.length) {
+    $('#discoItems').innerHTML = '<p class="hint">还没有动态物品。新增物品会显示在列表顶部，并获得最高的物品层级。</p>';
+    return;
+  }
+  $('#discoItems').innerHTML = items.map((item, index) => ({item, index})).reverse().map(({item, index}) => `
+    <div class="disco-scene-item">
+      <div class="disco-scene-item-head">
+        <b>${esc(item.id)}</b>
+        <span class="hint">列表越靠上，物品层级越高</span>
+        <span style="flex:1"></span>
+        <span class="btn sm" data-disco-item-up="${index}" ${index === items.length - 1 ? 'style="opacity:.35;pointer-events:none"' : ''}>上移</span>
+        <span class="btn sm" data-disco-item-down="${index}" ${index === 0 ? 'style="opacity:.35;pointer-events:none"' : ''}>下移</span>
+        <span class="btn sm r" data-disco-item-delete="${index}">删除</span>
+      </div>
+      <div class="row">
+        <label class="f">图片路径<input data-disco-item-index="${index}" data-disco-item-field="path" value="${esc(item.path)}" placeholder="assets/scene/item.png"></label>
+        <label class="f">X<input type="number" step="1" data-disco-item-index="${index}" data-disco-item-field="x" value="${Number(item.x)}"></label>
+        <label class="f">Y<input type="number" step="1" data-disco-item-index="${index}" data-disco-item-field="y" value="${Number(item.y)}"></label>
+      </div>
+      <div class="row">
+        <label class="f">宽度(px)<input type="number" min="1" step="1" data-disco-item-index="${index}" data-disco-item-field="width" value="${Number(item.width)}"></label>
+        <label class="f">高度(px)<input type="number" min="1" step="1" data-disco-item-index="${index}" data-disco-item-field="height" value="${Number(item.height)}"></label>
+        <label class="c" style="margin-top:18px"><input type="checkbox" data-disco-item-index="${index}" data-disco-item-field="lock_aspect" ${item.lock_aspect !== false ? 'checked' : ''}>锁定宽高比例</label>
+        <label class="c" style="margin-top:18px"><input type="checkbox" data-disco-item-index="${index}" data-disco-item-field="flip_x" ${item.flip_x ? 'checked' : ''}>水平翻转</label>
+      </div>
+    </div>`).join('');
+}
+function loadImageDimensions(path) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve({width: image.naturalWidth, height: image.naturalHeight});
+    image.onerror = () => reject(new Error('图片无法加载'));
+    image.src = path;
+  });
+}
+async function syncResourceAspectFromPath(input) {
+  const group = input.dataset.discoPathGroup;
+  if (!group || !getPath(CFG, `${group}.lock_aspect`)) return;
+  const path = normalizeDiscoAssetPath(input.value);
+  if (!path) return;
+  try {
+    const size = await loadImageDimensions(path);
+    if (!size.width || !size.height) return;
+    const width = Math.max(1, Number(getPath(CFG, `${group}.width`)) || 300);
+    const height = Math.max(1, Math.round(width * size.height / size.width));
+    const patch = {};
+    deepMerge(patch, setPatch(`${group}.path`, path));
+    deepMerge(patch, setPatch(`${group}.height`, height));
+    deepMerge(CFG, patch);
+    deepMerge(pending, patch);
+    const widthEl = $(`[data-k="${group}.width"]`);
+    const heightEl = $(`[data-k="${group}.height"]`);
+    const pathEl = $(`[data-k="${group}.path"]`);
+    if (widthEl) widthEl.value = width;
+    if (heightEl) heightEl.value = height;
+    if (pathEl) pathEl.value = path;
+    queueConfigSave();
+  } catch (_) {
+    toast('图片暂时无法加载，已保留路径但宽高比例未更新');
+  }
+}
 function fillForm() {
   if (!CFG || !CFG.ai) return; // 配置还没加载完（loadWeights / loadDevices 可能先回来）
+  renderDiscoFixedResources();
+  renderDiscoItems();
   $$('[data-k]').forEach(el => {
     const v = getPath(CFG, el.dataset.k);
     if (el.type === 'checkbox') el.checked = !!v;
@@ -919,6 +1036,24 @@ function fillForm() {
   sessionPlanText();
 }
 let saveTimer = null, pending = {};
+function queueConfigSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    const changes = pending;
+    pending = {};
+    try {
+      const result = await api('/api/config', changes);
+      if (!result || result.ok === false) throw new Error(result?.error || '配置保存失败');
+      toast('设置已保存');
+    } catch (error) {
+      toast(`保存失败：${error.message || error}`);
+      try {
+        CFG = await api('/api/config');
+        fillForm();
+      } catch (_) {}
+    }
+  }, 500);
+}
 function deepMerge(a, b) { for (const k in b) { if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k])) { a[k] = a[k] || {}; deepMerge(a[k], b[k]); } else a[k] = b[k]; } return a; }
 function onField(el) {
   let v;
@@ -927,20 +1062,158 @@ function onField(el) {
   else if (el.type === 'number' || el.type === 'range' || el.dataset.k === 'tts.sample_steps') v = el.value === '' ? 0 : Number(el.value);
   else if (el.dataset.list) v = parseArgs(el.value);
   else v = el.value;
-  const p = setPatch(el.dataset.k, v);
+  let p = setPatch(el.dataset.k, v);
+  const aspectGroup = el.dataset.discoAspectGroup;
+  const aspectDim = el.dataset.discoAspectDim;
+  if (aspectGroup && aspectDim && getPath(CFG, `${aspectGroup}.lock_aspect`)) {
+    const widthPath = `${aspectGroup}.width`;
+    const heightPath = `${aspectGroup}.height`;
+    const width = Number(getPath(CFG, widthPath)) || 1;
+    const height = Number(getPath(CFG, heightPath)) || 1;
+    const paired = aspectDim === 'width'
+      ? setPatch(heightPath, Math.max(1, Math.round(Number(v) * height / width)))
+      : setPatch(widthPath, Math.max(1, Math.round(Number(v) * width / height)));
+    deepMerge(p, paired);
+    const pairedPath = aspectDim === 'width' ? heightPath : widthPath;
+    const pairedEl = $(`[data-k="${pairedPath}"]`);
+    if (pairedEl) pairedEl.value = getPath(paired, pairedPath);
+  }
   deepMerge(CFG, p); deepMerge(pending, p);
   $$(`[data-show="${el.dataset.k}"]`).forEach(x => x.textContent = v);
   if (el.dataset.k === 'stats.token_label') $('#s_token_label').textContent = v || '本场已用 Token';
   sessionPlanText();
   if (['ai.backend', 'platform', 'douyin.mode'].includes(el.dataset.k)) fillForm();
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => { const p = pending; pending = {}; await api('/api/config', p); toast('设置已保存'); }, 500);
+  queueConfigSave();
 }
-document.addEventListener('change', e => { if (e.target.dataset?.k) onField(e.target); });
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el.dataset?.discoItemField) { void updateDiscoItemField(el).catch(() => {}); return; }
+  if (el.dataset?.k) {
+    onField(el);
+    if (el.dataset.discoPathGroup) void syncResourceAspectFromPath(el);
+  }
+});
 document.addEventListener('input', e => {
   if (e.target.dataset?.k === 'stats.token_label') $('#s_token_label').textContent = e.target.value || '本场已用 Token';
   if (e.target.dataset?.k && e.target.type === 'range') onField(e.target);
 });
+function discoItems() {
+  return Array.isArray(CFG.disco?.items) ? CFG.disco.items.map(item => ({...item})) : [];
+}
+function nextDiscoItemId(path, items) {
+  const stem = path.split('/').pop().replace(/\.[^.]+$/, '');
+  let base = stem.replace(/[^0-9A-Za-z_-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'item';
+  const used = new Set(items.map(item => item.id));
+  let id = base;
+  let suffix = 2;
+  while (used.has(id)) id = `${base}-${suffix++}`;
+  return id;
+}
+async function updateDiscoItemField(input) {
+  const index = Number(input.dataset.discoItemIndex);
+  const field = input.dataset.discoItemField;
+  const items = discoItems();
+  const item = items[index];
+  if (!item || !field) return;
+  let value;
+  if (input.type === 'checkbox') value = input.checked;
+  else if (['x', 'y', 'width', 'height'].includes(field)) value = Number(input.value);
+  else value = input.value;
+
+  if (field === 'path') {
+    value = normalizeDiscoAssetPath(value);
+    if (!value) {
+      input.value = item.path;
+      return toast('请输入有效的本地图片路径');
+    }
+    input.value = value;
+  }
+  if (['width', 'height'].includes(field) && item.lock_aspect !== false) {
+    const width = Number(item.width) || 1;
+    const height = Number(item.height) || 1;
+    if (field === 'width') {
+      item.height = Math.max(1, Math.round(value * height / width));
+      const paired = $(`[data-disco-item-index="${index}"][data-disco-item-field="height"]`);
+      if (paired) paired.value = item.height;
+    } else {
+      item.width = Math.max(1, Math.round(value * width / height));
+      const paired = $(`[data-disco-item-index="${index}"][data-disco-item-field="width"]`);
+      if (paired) paired.value = item.width;
+    }
+  }
+  item[field] = value;
+  if (field === 'path' && item.lock_aspect !== false) {
+    try {
+      const size = await loadImageDimensions(value);
+      if (size.width > 0 && size.height > 0) {
+        item.height = Math.max(1, Math.round(Number(item.width || 300) * size.height / size.width));
+        const paired = $(`[data-disco-item-index="${index}"][data-disco-item-field="height"]`);
+        if (paired) paired.value = item.height;
+      }
+    } catch (_) {
+      toast('物品图片暂时无法加载，已保留路径');
+    }
+  }
+  items[index] = item;
+  await saveNow({disco: {items}}, '物品配置已保存');
+}
+async function addDiscoItem() {
+  const input = $('#discoItemPath');
+  const path = normalizeDiscoAssetPath(input.value);
+  if (!path) return toast('请输入有效的本地图片路径');
+  const items = discoItems();
+  if (items.length >= 50) return toast('动态物品最多 50 个');
+  let width = 300;
+  let height = 300;
+  try {
+    const size = await loadImageDimensions(path);
+    if (size.width > 0 && size.height > 0) {
+      const scale = Math.min(1, 320 / size.width, 320 / size.height);
+      width = Math.max(1, Math.round(size.width * scale));
+      height = Math.max(1, Math.round(size.height * scale));
+    }
+  } catch (_) {
+    toast('图片暂时无法加载，已使用默认 300×300，构建后可重新调整');
+  }
+  const id = nextDiscoItemId(path, items);
+  items.push({
+    id,
+    path,
+    x: 1920,
+    y: 540,
+    width,
+    height,
+    lock_aspect: true,
+    flip_x: false,
+    scale_x: 1,
+    scale_y: 1,
+    origin_x: 0.5,
+    origin_y: 0.5,
+    opacity: 1,
+    tint: '#ffffff',
+    visible: true,
+  });
+  try {
+    await saveNow({disco: {items}}, '动态物品已新增');
+    input.value = '';
+    renderDiscoItems();
+  } catch (_) {}
+}
+async function moveDiscoItem(index, direction) {
+  const items = discoItems();
+  const target = index + direction;
+  if (!items[index] || target < 0 || target >= items.length) return;
+  [items[index], items[target]] = [items[target], items[index]];
+  await saveNow({disco: {items}}, direction > 0 ? '物品层级已上移' : '物品层级已下移');
+  renderDiscoItems();
+}
+async function deleteDiscoItem(index) {
+  const items = discoItems();
+  if (!items[index]) return;
+  items.splice(index, 1);
+  await saveNow({disco: {items}}, '动态物品已删除');
+  renderDiscoItems();
+}
 
 const fmtWeight = x => /^[A-Za-z]:[\\/]|^\//.test(x)
   ? '[外部] ' + x.split(/[\\/]/).pop()
@@ -1246,7 +1519,18 @@ setInterval(pollDy, 3000);
 $('#dyClear').onclick = () => { $('#dyRaw').textContent = '（已清空，新消息会继续显示）'; };
 
 // ---------- 通用保存 ----------
-async function saveNow(patch, msg = '设置已保存') { deepMerge(CFG, patch); await api('/api/config', patch); toast(msg); }
+async function saveNow(patch, msg = '设置已保存') {
+  deepMerge(CFG, patch);
+  const result = await api('/api/config', patch);
+  if (!result || result.ok === false) {
+    toast(`保存失败：${result?.error || '配置无效'}`);
+    CFG = await api('/api/config');
+    fillForm();
+    throw new Error(result?.error || '配置无效');
+  }
+  toast(msg);
+  return result;
+}
 
 // ---------- Live2D ----------
 let L2D = {expressions: [], motions: [], model_files: []};
@@ -1353,6 +1637,13 @@ $('#discoPower').onclick = async () => {
   } finally {
     delete button.dataset.busy;
   }
+};
+$('#discoItemAdd').onclick = () => addDiscoItem();
+$('#discoItems').onclick = e => {
+  const data = e.target.dataset || {};
+  if (data.discoItemUp !== undefined) return void moveDiscoItem(Number(data.discoItemUp), 1).catch(() => {});
+  if (data.discoItemDown !== undefined) return void moveDiscoItem(Number(data.discoItemDown), -1).catch(() => {});
+  if (data.discoItemDelete !== undefined) return void deleteDiscoItem(Number(data.discoItemDelete)).catch(() => {});
 };
 $('#discoSkinAdd').onclick = async () => {
   const path = $('#discoSkinPick').value;

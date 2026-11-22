@@ -115,6 +115,9 @@ select{appearance:none;padding-right:32px;
 .disco-skin-info{display:flex;flex-direction:column;gap:2px;flex:1;min-width:180px}
 .disco-skin-info b{font-size:13px}
 .disco-skin-info code{word-break:break-all}
+.disco-scene-item{padding:12px;margin-bottom:10px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025)}
+.disco-scene-item-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.disco-scene-item-head b{font-size:13px;color:#fff}
 code{background:rgba(255,255,255,.07);padding:1px 6px;border-radius:6px;color:#ffd77a;font-size:12px}
 .ev-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
 .ev-head h3{margin:0}

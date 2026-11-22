@@ -5,11 +5,11 @@ import { CharacterLayer } from "./characters";
 import { LightRig } from "./lights";
 import { PerformanceGovernor } from "./performance";
 import { loadResourceManifest, type ResourceError } from "./resources";
-import type { CameraState, DiscoCharacter, DiscoConfig } from "./types";
+import type { CameraMode, CameraState, DiscoCharacter, DiscoConfig, ResourceSpec } from "./types";
 
 export interface SceneCallbacks {
   onResources: (errors: ResourceError[]) => void;
-  onCamera: (state: CameraState, mode: "free" | "manual" | "scripted") => void;
+  onCamera: (state: CameraState, mode: CameraMode) => void;
   onMetrics: (fps: number) => void;
 }
 
@@ -18,7 +18,8 @@ export class DiscoScene {
   private viewport!: Viewport;
   private readonly world = new Container();
   private readonly backWall = new Container();
-  private readonly stageSet = new Container();
+  private readonly itemSet = new Container();
+  private readonly djBooth = new Container();
   private characters!: CharacterLayer;
   private lights!: LightRig;
   private camera!: CameraDirector;
@@ -79,8 +80,10 @@ export class DiscoScene {
       .fill({ color: 0x5a216f, alpha: 0.2 });
     base.zIndex = -10;
     this.backWall.zIndex = 0;
-    this.stageSet.zIndex = 10;
-    this.world.addChild(base, this.backWall, this.stageSet);
+    this.itemSet.zIndex = 10;
+    this.itemSet.sortableChildren = true;
+    this.djBooth.zIndex = 45;
+    this.world.addChild(base, this.backWall, this.itemSet, this.djBooth);
     this.characters = new CharacterLayer(this.world, this.config);
     this.lights = new LightRig(this.world, this.config);
     this.camera = new CameraDirector(
@@ -106,6 +109,7 @@ export class DiscoScene {
     this.applyClampPlugins();
     const signature = JSON.stringify({
       resources: config.resources,
+      items: config.items,
       skins: config.skins,
     });
     if (signature !== this.resourceSignature) {
@@ -155,7 +159,8 @@ export class DiscoScene {
   }
 
   focusDj(): boolean {
-    return this.camera.requestDjShot(performance.now());
+    const dj = this.config.resources.djBooth;
+    return this.camera.requestDjShot(performance.now(), dj?.x, dj?.y);
   }
 
   get characterCount(): number {
@@ -165,33 +170,62 @@ export class DiscoScene {
   private async reloadVisuals(initial: boolean): Promise<void> {
     this.resourceSignature = JSON.stringify({
       resources: this.config.resources,
+      items: this.config.items,
       skins: this.config.skins,
     });
-    const result = await loadResourceManifest(this.config.resources, (path) =>
+    const fixed = await loadResourceManifest(this.config.resources, (path) =>
+      Assets.load<Texture>(path),
+    );
+    const itemManifest = Object.fromEntries(this.config.items.map((item) => [item.id, item]));
+    const dynamic = await loadResourceManifest(itemManifest, (path) =>
       Assets.load<Texture>(path),
     );
     this.backWall.removeChildren();
-    this.stageSet.removeChildren();
-    for (const [slot, texture] of result.assets) {
+    this.itemSet.removeChildren();
+    this.djBooth.removeChildren();
+    for (const [slot, texture] of fixed.assets) {
       const spec = this.config.resources[slot];
       if (!spec) {
         continue;
       }
-      const sprite = new Sprite(texture);
-      sprite.anchor.set(spec.origin_x, spec.origin_y);
-      sprite.position.set(spec.x, spec.y);
-      sprite.scale.set(spec.scale_x, spec.scale_y);
-      sprite.alpha = spec.opacity;
-      sprite.tint = spec.tint;
+      const sprite = this.createResourceSprite(texture, spec);
       if (slot === "ceilingWall") {
         this.backWall.addChild(sprite);
-      } else {
-        this.stageSet.addChild(sprite);
+      } else if (slot === "djBooth") {
+        this.djBooth.addChild(sprite);
       }
     }
+    this.config.items.forEach((item, index) => {
+      const texture = dynamic.assets.get(item.id);
+      if (!texture) {
+        return;
+      }
+      const sprite = this.createResourceSprite(texture, item);
+      sprite.zIndex = index;
+      this.itemSet.addChild(sprite);
+    });
     await this.characters.loadSkins((errors) =>
-      this.callbacks.onResources([...result.errors, ...errors]),
+      this.callbacks.onResources([...fixed.errors, ...dynamic.errors, ...errors]),
     );
+  }
+
+  private createResourceSprite(texture: Texture, spec: ResourceSpec): Sprite {
+    const sprite = new Sprite(texture);
+    sprite.anchor.set(spec.origin_x, spec.origin_y);
+    sprite.position.set(spec.x, spec.y);
+    if (spec.width > 0 && spec.height > 0) {
+      sprite.width = spec.width;
+      sprite.height = spec.height;
+    } else {
+      sprite.scale.set(spec.scale_x || 1, spec.scale_y || 1);
+    }
+    if (spec.flip_x) {
+      sprite.scale.x = -Math.abs(sprite.scale.x);
+    }
+    sprite.alpha = spec.opacity;
+    sprite.tint = spec.tint;
+    sprite.visible = spec.visible !== false;
+    return sprite;
   }
 
   private readonly handleResize = (): void => {

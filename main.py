@@ -619,7 +619,12 @@ def build_web(app: App):
             patch["songs"].pop("_ne_logged_in", None)
         old_room = app.cfg.get("room_id")
         old_platform = app.platform
-        app.cfg = config.merge(app.cfg, patch)
+        candidate = config.merge(app.cfg, patch)
+        if "disco" in patch:
+            error = config.validate_disco(candidate.get("disco") or {})
+            if error:
+                return web.json_response({"ok": False, "error": error}, status=400)
+        app.cfg = candidate
         config.save(app.cfg)
         if "bili_follow_back" in patch and not app.cfg["bili_follow_back"].get("enabled"):
             app.follow_back.clear()

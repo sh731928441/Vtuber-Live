@@ -28,6 +28,7 @@ export class CameraDirector {
   private manualUntil = 0;
   private activeShot: ActiveShot | null = null;
   private lastGiftShotAt = -Infinity;
+  private staticState: CameraState;
 
   constructor(
     config: CameraConfig,
@@ -43,6 +44,10 @@ export class CameraDirector {
     this.baseScale = baseScale;
     this.state = { ...config.start };
     this.state = this.clampState(this.state);
+    this.staticState = { ...this.state };
+    if (!config.free_pan_enabled) {
+      this.currentMode = "static";
+    }
   }
 
   get value(): CameraState {
@@ -54,8 +59,20 @@ export class CameraDirector {
   }
 
   updateConfig(config: CameraConfig): void {
+    const wasEnabled = this.config.free_pan_enabled;
     this.config = config;
     this.state = this.clampState(this.state);
+    if (!config.free_pan_enabled) {
+      if (wasEnabled) {
+        this.staticState = { ...this.state };
+      }
+      if (this.currentMode === "free") {
+        this.currentMode = "static";
+      }
+    } else if (!wasEnabled && this.currentMode === "static") {
+      this.currentMode = "free";
+      this.setFreePhaseFromX(this.state.x, 0, 1);
+    }
   }
 
   resize(viewportWidth: number, viewportHeight: number, baseScale: number): void {
@@ -69,6 +86,9 @@ export class CameraDirector {
     if (state) {
       this.state = this.clampState(state);
     }
+    if (!this.config.free_pan_enabled) {
+      this.staticState = { ...this.state };
+    }
     this.currentMode = "manual";
     this.activeShot = null;
     this.manualUntil = now + this.config.manual_resume_seconds * 1000;
@@ -79,6 +99,9 @@ export class CameraDirector {
       return;
     }
     this.state = this.clampState(state);
+    if (!this.config.free_pan_enabled) {
+      this.staticState = { ...this.state };
+    }
   }
 
   requestCharacterShot(
@@ -106,13 +129,13 @@ export class CameraDirector {
     );
   }
 
-  requestDjShot(now: number): boolean {
+  requestDjShot(now: number, x?: number, y?: number): boolean {
     const shot = this.config.dj_shot;
     return this.requestShot(
       {
         target: "dj",
-        x: shot.x ?? this.world.width / 2,
-        y: shot.y ?? 370,
+        x: x ?? shot.x ?? this.world.width / 2,
+        y: y ?? shot.y ?? 370,
         zoom: shot.zoom,
         transitionMs: shot.transition_ms,
         holdMs: shot.hold_ms,
@@ -165,9 +188,7 @@ export class CameraDirector {
 
   cancelCharacter(uid: string, now: number): void {
     if (this.activeShot?.request.uid === uid) {
-      this.activeShot = null;
-      this.currentMode = "free";
-      this.setFreePhaseFromX(this.state.x, now, 1);
+      this.resumeUnscripted(now);
     }
   }
 
@@ -176,11 +197,18 @@ export class CameraDirector {
       if (now < this.manualUntil) {
         return this.value;
       }
-      this.currentMode = "free";
-      this.setFreePhaseFromX(this.state.x, now, 1);
+      if (this.config.free_pan_enabled) {
+        this.currentMode = "free";
+        this.setFreePhaseFromX(this.state.x, now, 1);
+      } else {
+        this.currentMode = "static";
+        this.state = this.clampState(this.staticState);
+      }
     }
     if (this.currentMode === "scripted" && this.activeShot) {
       this.updateScripted(now);
+    } else if (this.currentMode === "static") {
+      this.state = this.clampState(this.staticState);
     } else {
       this.currentMode = "free";
       this.updateFree(deltaMs);
@@ -210,9 +238,18 @@ export class CameraDirector {
       return;
     }
     if (now >= shot.holdEndsAt) {
-      this.activeShot = null;
+      this.resumeUnscripted(now);
+    }
+  }
+
+  private resumeUnscripted(now: number): void {
+    this.activeShot = null;
+    if (this.config.free_pan_enabled) {
       this.currentMode = "free";
       this.setFreePhaseFromX(this.state.x, now, 1);
+    } else {
+      this.currentMode = "static";
+      this.state = this.clampState(this.staticState);
     }
   }
 

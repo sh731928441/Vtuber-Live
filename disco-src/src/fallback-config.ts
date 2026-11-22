@@ -22,11 +22,10 @@ export const FALLBACK_CONFIG: DiscoConfig = {
     { id: "dsh1", path: "/disco/assets/role/dsh1.png" },
   ],
   resources: {
-    ceilingWall: resource("/disco/assets/scene/ceiling-wall.svg", 1920, 540),
-    leftStage: resource("/disco/assets/scene/left-stage.svg", 1260, 550),
-    djBooth: resource("/disco/assets/scene/dj-booth.svg", 1920, 530),
-    rightStage: resource("/disco/assets/scene/right-stage.svg", 2580, 550),
+    ceilingWall: resource("/disco/assets/scene/ceiling-wall.svg", 1920, 540, 3840, 1080),
+    djBooth: resource("/disco/assets/scene/dj-booth.svg", 1920, 530, 380, 160),
   },
+  items: [],
   lights: {
     count: 5,
     base_alpha: 0.38,
@@ -47,6 +46,7 @@ export const FALLBACK_CONFIG: DiscoConfig = {
   camera: {
     start: { x: 1920, y: 540, zoom: 1 },
     zoom: [1, 2],
+    free_pan_enabled: true,
     free_pan_seconds: 30,
     manual_resume_seconds: 8,
     gift_coalesce_ms: 5000,
@@ -56,11 +56,14 @@ export const FALLBACK_CONFIG: DiscoConfig = {
   },
 };
 
-function resource(path: string, x: number, y: number) {
+function resource(path: string, x: number, y: number, width: number, height: number) {
   return {
     path,
     x,
     y,
+    width,
+    height,
+    lock_aspect: true,
     scale_x: 1,
     scale_y: 1,
     origin_x: 0.5,
