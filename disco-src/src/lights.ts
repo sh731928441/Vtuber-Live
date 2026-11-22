@@ -4,8 +4,7 @@ import type { DiscoConfig, LightConfig } from "./types";
 
 interface LightNode {
   root: Container;
-  wash: Sprite;
-  core: Sprite;
+  beam: Sprite;
   baseX: number;
   phase: number;
 }
@@ -13,8 +12,8 @@ interface LightNode {
 export class LightRig {
   private readonly behind = new Container();
   private readonly front = new Container();
-  private readonly textureCache = new TextureCache<"wash" | "core", Texture>((kind) =>
-    createGlowTexture(kind),
+  private readonly textureCache = new TextureCache<"beam" | "wash", Texture>((kind) =>
+    createLightTexture(kind),
   );
   private readonly nodes: LightNode[] = [];
   private readonly backgroundWash: Sprite;
@@ -65,8 +64,7 @@ export class LightRig {
       node.root.x = node.baseX + Math.sin(t * 0.19) * lights.drift_x * drift;
       node.root.y = 42 + Math.cos(t * 0.13 + index) * lights.drift_y * drift;
       const breath = Math.sin(t * 0.46 + index * 0.7) * lights.breath * drift;
-      node.wash.alpha = lights.base_alpha * (1 + breath);
-      node.core.alpha = 0.34 * (1 + breath * 0.65);
+      node.beam.alpha = lights.base_alpha * (1 + breath);
     });
     const wash = lights.background_wash;
     this.backgroundWash.position.set(wash.x, wash.y);
@@ -90,24 +88,17 @@ export class LightRig {
     const colors = lights.colors.length ? lights.colors : ["#32dfff", "#ff4fca"];
     for (let index = 0; index < count; index += 1) {
       const root = new Container();
-      const wash = new Sprite(this.textureCache.get("wash"));
-      wash.anchor.set(0.5, 0);
-      wash.width = 610;
-      wash.height = 940;
-      wash.tint = colors[index % colors.length];
-      wash.blendMode = "add";
-      const core = new Sprite(this.textureCache.get("core"));
-      core.anchor.set(0.5);
-      core.position.set(0, 86);
-      core.width = 230;
-      core.height = 230;
-      core.tint = colors[index % colors.length];
-      core.blendMode = "add";
-      root.addChild(wash, core);
+      const beam = new Sprite(this.textureCache.get("beam"));
+      beam.anchor.set(0.5, 0);
+      beam.width = 760;
+      beam.height = 1010;
+      beam.tint = colors[index % colors.length];
+      beam.blendMode = "add";
+      root.addChild(beam);
       const baseX = 520 + (index * 2800) / Math.max(1, count - 1);
       root.x = baseX;
       this.behind.addChild(root);
-      this.nodes.push({ root, wash, core, baseX, phase: index * 0.91 });
+      this.nodes.push({ root, beam, baseX, phase: index * 0.91 });
     }
     this.setQuality(this.quality);
   }
@@ -117,20 +108,123 @@ function qualityScale(quality: number): number {
   return quality > 0.5 ? 1 : 0.45;
 }
 
-function createGlowTexture(kind: "wash" | "core"): Texture {
+function createLightTexture(kind: "beam" | "wash"): Texture {
   const canvas = document.createElement("canvas");
-  canvas.width = kind === "core" ? 512 : 768;
-  canvas.height = kind === "core" ? 512 : 1024;
+  canvas.width = 768;
+  canvas.height = 1024;
   const context = canvas.getContext("2d")!;
-  const gradient =
-    kind === "core"
-      ? context.createRadialGradient(256, 256, 0, 256, 256, 256)
-      : context.createRadialGradient(384, 160, 8, 384, 500, 660);
-  gradient.addColorStop(0, "rgba(255,255,255,0.95)");
-  gradient.addColorStop(0.18, "rgba(255,255,255,0.65)");
-  gradient.addColorStop(0.52, "rgba(255,255,255,0.18)");
-  gradient.addColorStop(1, "rgba(255,255,255,0)");
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, canvas.width, canvas.height);
+  if (kind === "beam") {
+    drawBeamCone(context, canvas.width, canvas.height);
+  } else {
+    drawWashGlow(context, canvas.width, canvas.height);
+  }
   return Texture.from(canvas);
+}
+
+function drawBeamCone(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+): void {
+  context.clearRect(0, 0, width, height);
+  const image = context.createImageData(width, height);
+  const data = image.data;
+  const center = (width - 1) / 2;
+  const apexHalfWidth = width * 0.045;
+  const baseHalfWidth = width * 0.48;
+  const visibleStart = 0.012;
+  const maxAlpha = 190;
+
+  for (let y = 0; y < height; y += 1) {
+    const progress = y / (height - 1);
+    if (progress < visibleStart) {
+      continue;
+    }
+    const beamProgress = (progress - visibleStart) / (1 - visibleStart);
+    const halfWidth =
+      apexHalfWidth +
+      (baseHalfWidth - apexHalfWidth) * Math.pow(beamProgress, 0.76);
+    const apexFade = smoothstep(0, 0.055, beamProgress);
+    const tailFade = 1 - smoothstep(0.8, 1, beamProgress);
+    const longitudinal = (1 - beamProgress * 0.42) * apexFade * tailFade;
+    if (longitudinal <= 0) {
+      continue;
+    }
+
+    for (let x = 0; x < width; x += 1) {
+      const lateralDistance = Math.abs(x + 0.5 - center) / halfWidth;
+      if (lateralDistance >= 1) {
+        continue;
+      }
+      const softWide = 1 - smoothstep(0.12, 1, lateralDistance);
+      const softCore = 1 - smoothstep(0, 0.58, lateralDistance);
+      const lateral = softWide * 0.72 + softCore * 0.28;
+      const index = (y * width + x) * 4;
+      data[index] = 255;
+      data[index + 1] = 255;
+      data[index + 2] = 255;
+      data[index + 3] = Math.round(maxAlpha * longitudinal * lateral);
+    }
+  }
+
+  context.putImageData(image, 0, 0);
+  clearTextureEdges(context, width, height);
+}
+
+function drawWashGlow(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+): void {
+  context.clearRect(0, 0, width, height);
+  const radial = context.createRadialGradient(
+    width / 2,
+    420,
+    0,
+    width / 2,
+    420,
+    360,
+  );
+  radial.addColorStop(0, "rgba(255,255,255,0.95)");
+  radial.addColorStop(0.25, "rgba(255,255,255,0.68)");
+  radial.addColorStop(0.6, "rgba(255,255,255,0.2)");
+  radial.addColorStop(1, "rgba(255,255,255,0)");
+  context.fillStyle = radial;
+  context.fillRect(0, 0, width, height);
+
+  context.globalCompositeOperation = "destination-in";
+  const vertical = context.createLinearGradient(0, 0, 0, height);
+  vertical.addColorStop(0, "rgba(255,255,255,0)");
+  vertical.addColorStop(0.16, "rgba(255,255,255,1)");
+  vertical.addColorStop(0.82, "rgba(255,255,255,1)");
+  vertical.addColorStop(1, "rgba(255,255,255,0)");
+  context.fillStyle = vertical;
+  context.fillRect(0, 0, width, height);
+
+  const horizontal = context.createLinearGradient(0, 0, width, 0);
+  horizontal.addColorStop(0, "rgba(255,255,255,0)");
+  horizontal.addColorStop(0.16, "rgba(255,255,255,1)");
+  horizontal.addColorStop(0.84, "rgba(255,255,255,1)");
+  horizontal.addColorStop(1, "rgba(255,255,255,0)");
+  context.fillStyle = horizontal;
+  context.fillRect(0, 0, width, height);
+  context.globalCompositeOperation = "source-over";
+
+  clearTextureEdges(context, width, height);
+}
+
+function clearTextureEdges(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+): void {
+  context.clearRect(0, 0, width, 1);
+  context.clearRect(0, height - 1, width, 1);
+  context.clearRect(0, 0, 1, height);
+  context.clearRect(width - 1, 0, 1, height);
+}
+
+function smoothstep(edge0: number, edge1: number, value: number): number {
+  const t = Math.min(1, Math.max(0, (value - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
 }
