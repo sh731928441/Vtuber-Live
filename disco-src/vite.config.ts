@@ -4,6 +4,15 @@ import { defineConfig } from "vite";
 export default defineConfig({
   base: "/disco/",
   publicDir: "public",
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8787', // 后端服务地址
+        changeOrigin: true,              // 推荐开启，修改请求头中的 Origin
+        // rewrite 是可选的，取决于你的后端接口路径是否包含 /api
+      }
+    }
+  },
   build: {
     outDir: "../web/disco",
     emptyOutDir: true,
