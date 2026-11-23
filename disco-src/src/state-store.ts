@@ -110,7 +110,6 @@ function isCharacter(value: DiscoMessage): value is DiscoMessage & DiscoCharacte
   return (
     typeof value.uid === "string" &&
     typeof value.name === "string" &&
-    (value.band === "mid" || value.band === "near") &&
     Number.isFinite(value.x) &&
     Number.isFinite(value.y) &&
     typeof value.skinId === "string"
@@ -121,7 +120,6 @@ function isCharacterData(value: DiscoCharacter): value is DiscoCharacter {
   return (
     typeof value.uid === "string" &&
     typeof value.name === "string" &&
-    (value.band === "mid" || value.band === "near") &&
     Number.isFinite(value.x) &&
     Number.isFinite(value.y) &&
     typeof value.skinId === "string"
@@ -129,7 +127,7 @@ function isCharacterData(value: DiscoCharacter): value is DiscoCharacter {
 }
 
 function normalizeCharacter(character: DiscoCharacter): DiscoCharacter {
-  return {
+  const normalized = {
     ...character,
     platform: character.platform ?? "bilibili",
     sourceUid: character.sourceUid ?? "",
@@ -138,4 +136,6 @@ function normalizeCharacter(character: DiscoCharacter): DiscoCharacter {
       : null,
     direction: character.direction ?? "left",
   };
+  delete (normalized as DiscoCharacter & { band?: unknown }).band;
+  return normalized;
 }

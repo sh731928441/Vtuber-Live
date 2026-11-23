@@ -38,13 +38,51 @@ def _normal_name(value: Any) -> str:
     return " ".join(str(value or "").strip().split())
 
 
+def _parse_move_command(command: str, default_step: Any) -> tuple[float, float] | None:
+    text = str(command or "").strip()
+    if not text:
+        return None
+    default_distance = _finite_number(default_step, 20)
+    if default_distance < 0 or default_distance > 5000:
+        return None
+    pattern = re.compile(r"(左|右|上|下)\s*([0-9]+(?:\.[0-9]+)?)?")
+    axes: set[str] = set()
+    dx = 0.0
+    dy = 0.0
+    position = 0
+    count = 0
+    for match in pattern.finditer(text):
+        if text[position:match.start()].strip():
+            return None
+        direction = match.group(1)
+        axis = "x" if direction in {"左", "右"} else "y"
+        if axis in axes:
+            return None
+        axes.add(axis)
+        distance = _finite_number(match.group(2), default_distance) if match.group(2) else default_distance
+        if distance < 0 or distance > 5000:
+            return None
+        if direction == "左":
+            dx -= distance
+        elif direction == "右":
+            dx += distance
+        elif direction == "上":
+            dy -= distance
+        else:
+            dy += distance
+        position = match.end()
+        count += 1
+    if count == 0 or text[position:].strip():
+        return None
+    return dx, dy
+
+
 @dataclass
 class DiscoCharacter:
     key: str
     platform: str
     uid: str
     name: str
-    band: str
     x: float
     y: float
     skin_id: str
@@ -65,7 +103,6 @@ class DiscoCharacter:
             "platform": self.platform,
             "sourceUid": self.uid,
             "name": self.name,
-            "band": self.band,
             "x": round(self.x, 2),
             "y": round(self.y, 2),
             "skinId": self.skin_id,
@@ -171,30 +208,26 @@ class DiscoManager:
         self._log("info", f"Disco 用户缺少 UID，使用名称回退键：{platform}:name:{digest}")
         return f"{platform}:name:{digest}", platform, raw_name
 
-    def _bands(self) -> dict[str, dict[str, Any]]:
-        bands = self.cfg.get("bands") or {}
-        valid: dict[str, dict[str, Any]] = {}
-        for name in ("mid", "near"):
-            band = bands.get(name)
-            if not isinstance(band, dict):
-                continue
-            x = band.get("x") or []
-            y = band.get("y") or []
-            if len(x) != 2 or len(y) != 2:
-                continue
-            x0, x1 = sorted((_finite_number(x[0]), _finite_number(x[1])))
-            y0, y1 = sorted((_finite_number(y[0]), _finite_number(y[1])))
-            if x1 <= x0 or y1 <= y0:
-                continue
-            valid[name] = {**band, "x": [x0, x1], "y": [y0, y1]}
-        return valid
-
-    def clamp_to_band(self, band_name: str, x: Any, y: Any) -> tuple[float, float] | None:
-        band = self._bands().get(band_name)
-        if not band:
+    def _dance_floor(self) -> dict[str, list[float]] | None:
+        floor = self.cfg.get("dance_floor")
+        if not isinstance(floor, dict):
             return None
-        x0, x1 = band["x"]
-        y0, y1 = band["y"]
+        x = floor.get("x") or []
+        y = floor.get("y") or []
+        if len(x) != 2 or len(y) != 2:
+            return None
+        x0, x1 = sorted((_finite_number(x[0]), _finite_number(x[1])))
+        y0, y1 = sorted((_finite_number(y[0]), _finite_number(y[1])))
+        if x1 <= x0 or y1 <= y0:
+            return None
+        return {"x": [x0, x1], "y": [y0, y1]}
+
+    def clamp_to_dance_floor(self, x: Any, y: Any) -> tuple[float, float] | None:
+        floor = self._dance_floor()
+        if not floor:
+            return None
+        x0, x1 = floor["x"]
+        y0, y1 = floor["y"]
         return (
             min(x1, max(x0, _finite_number(x))),
             min(y1, max(y0, _finite_number(y))),
@@ -203,7 +236,7 @@ class DiscoManager:
     def clamp_all_characters(self) -> list[dict[str, Any]]:
         messages = []
         for character in self.characters.values():
-            clamped = self.clamp_to_band(character.band, character.x, character.y)
+            clamped = self.clamp_to_dance_floor(character.x, character.y)
             if clamped is None:
                 continue
             x, y = clamped
@@ -217,7 +250,7 @@ class DiscoManager:
                     uid=character.key,
                     x=round(character.x, 2),
                     y=round(character.y, 2),
-                    reason="band_config",
+                    reason="dance_floor_config",
                 )
             )
         return messages
@@ -248,22 +281,18 @@ class DiscoManager:
             self._log("warning", f"Disco 已达到角色上限 {max_characters}，拒绝创建 {key}")
             return None, False, key
 
-        bands = self._bands()
-        if not bands:
+        floor = self._dance_floor()
+        if not floor:
             self.rejected += 1
-            self._log("error", "Disco 活动带配置无效，无法创建角色")
+            self._log("error", "Disco 舞区配置无效，无法创建角色")
             return None, False, key
-        band_name = "near" if "near" in bands and self._rng.random() >= 0.45 else "mid"
-        band_name = band_name if band_name in bands else next(iter(bands))
-        band = bands[band_name]
-        x = self._rng.uniform(*band["x"])
-        y = self._rng.uniform(*band["y"])
+        x = self._rng.uniform(*floor["x"])
+        y = self._rng.uniform(*floor["y"])
         character = DiscoCharacter(
             key=key,
             platform=platform,
             uid=source_uid,
             name=_normal_name(event.get("name"))[:24] or "新朋友",
-            band=band_name,
             x=x,
             y=y,
             skin_id=self._choose_skin(),
@@ -281,7 +310,6 @@ class DiscoManager:
             sourceUid=character.uid,
             name=character.name,
             skinId=character.skin_id,
-            band=character.band,
             x=round(character.x, 2),
             y=round(character.y, 2),
         )
@@ -304,7 +332,13 @@ class DiscoManager:
             expiresAt=int((self._wall_clock() + ttl_ms / 1000) * 1000),
         )
 
-    def _move_character(self, event: dict[str, Any], now: float) -> list[dict[str, Any]]:
+    def _move_character(
+        self,
+        event: dict[str, Any],
+        now: float,
+        dx: float,
+        dy: float,
+    ) -> list[dict[str, Any]]:
         identity = self.user_identity(event)
         if not identity:
             return []
@@ -312,29 +346,21 @@ class DiscoManager:
         character = self.characters.get(key)
         if not character:
             return []
-        direction = str(event.get("direction") or "").strip().lower()
-        if direction not in {"left", "right", "左", "右"}:
-            self.rejected += 1
-            self._log("warning", f"Disco 拒绝无效移动方向：{direction}")
-            return []
-        distance = _finite_number(event.get("value"), _finite_number(self.cfg.get("move_step"), 20))
-        if distance < 0 or distance > 5000:
-            self.rejected += 1
-            self._log("warning", f"Disco 拒绝无效移动距离：{distance}")
-            return []
-        sign = -1 if direction in {"left", "左"} else 1
-        character.x += sign * distance
-        character.x, character.y = self.clamp_to_band(character.band, character.x, character.y) or (character.x, character.y)
+        character.x += dx
+        character.y += dy
+        character.x, character.y = self.clamp_to_dance_floor(character.x, character.y) or (
+            character.x,
+            character.y,
+        )
         character.last_seen = now
-        return [
-            self._publish(
-                "move",
-                uid=character.key,
-                x=round(character.x, 2),
-                y=round(character.y, 2),
-                direction="left" if sign < 0 else "right",
-            )
-        ]
+        payload: dict[str, Any] = {
+            "uid": character.key,
+            "x": round(character.x, 2),
+            "y": round(character.y, 2),
+        }
+        if dx:
+            payload["direction"] = "left" if dx < 0 else "right"
+        return [self._publish("move", **payload)]
 
     def _change_skin(self, event: dict[str, Any], now: float) -> list[dict[str, Any]]:
         identity = self.user_identity(event)
@@ -410,12 +436,19 @@ class DiscoManager:
                 if existing:
                     return [self._publish("despawn", uid=existing.key)]
             return []
-        move = re.fullmatch(r"移动(?:到)?\s*(左|右)\s*([0-9]+(?:\.[0-9]+)?)?", command)
-        if move:
-            return self._move_character(
-                {**event, "direction": move.group(1), "value": move.group(2) or self.cfg.get("move_step", 20)},
-                now,
-            )
+        if command.startswith("移动到"):
+            move_body = command[len("移动到"):]
+        elif command.startswith("移动"):
+            move_body = command[len("移动"):]
+        else:
+            move_body = None
+        if move_body is not None:
+            deltas = _parse_move_command(move_body, self.cfg.get("move_step", 20))
+            if deltas is None:
+                self.rejected += 1
+                self._log("warning", f"Disco 拒绝无效移动指令：{text}")
+                return []
+            return self._move_character(event, now, *deltas)
         self.rejected += 1
         self._log("warning", f"Disco 未识别指令：{text}")
         return []

@@ -1,4 +1,4 @@
-import type { BandConfig, CameraState, DiscoConfig, WorldConfig } from "./types";
+import type { CameraState, DanceFloorConfig, WorldConfig } from "./types";
 
 export interface CameraBounds {
   minX: number;
@@ -57,19 +57,29 @@ export function clampCamera(
   };
 }
 
-export function clampToBand(band: BandConfig, x: number, y: number): { x: number; y: number } {
+export function clampToDanceFloor(
+  floor: DanceFloorConfig,
+  x: number,
+  y: number,
+): { x: number; y: number } {
   return {
-    x: clamp(x, band.x[0], band.x[1]),
-    y: clamp(y, band.y[0], band.y[1]),
+    x: clamp(x, floor.x[0], floor.x[1]),
+    y: clamp(y, floor.y[0], floor.y[1]),
   };
 }
 
-export function bandScale(band: BandConfig, y: number): number {
-  const span = Math.max(1, band.y[1] - band.y[0]);
-  const progress = clamp((y - band.y[0]) / span, 0, 1);
-  return lerp(band.scale[0], band.scale[1], progress);
+export function danceFloorScale(floor: DanceFloorConfig, y: number): number {
+  const span = Math.max(1, floor.y[1] - floor.y[0]);
+  const progress = clamp((y - floor.y[0]) / span, 0, 1);
+  return lerp(floor.scale[0], floor.scale[1], progress);
 }
 
-export function layerZ(config: DiscoConfig, bandName: "mid" | "near", y: number): number {
-  return config.bands[bandName].z * 10000 + y;
+export function danceFloorBrightness(floor: DanceFloorConfig, y: number): number {
+  const span = Math.max(1, floor.y[1] - floor.y[0]);
+  const progress = clamp((y - floor.y[0]) / span, 0, 1);
+  return lerp(floor.brightness[0], floor.brightness[1], progress);
+}
+
+export function layerZ(y: number): number {
+  return y;
 }

@@ -5,12 +5,11 @@ export interface WorldConfig {
   viewport_height: number;
 }
 
-export interface BandConfig {
-  z: number;
+export interface DanceFloorConfig {
   x: [number, number];
   y: [number, number];
   scale: [number, number];
-  brightness: number;
+  brightness: [number, number];
 }
 
 export interface ResourceSpec {
@@ -88,7 +87,7 @@ export interface DiscoConfig {
   bubble_max_chars: number;
   move_step: number;
   world: WorldConfig;
-  bands: Record<"mid" | "near", BandConfig>;
+  dance_floor: DanceFloorConfig;
   skins: SkinSpec[];
   resources: Record<string, ResourceSpec>;
   items: SceneItemSpec[];
@@ -106,7 +105,6 @@ export interface DiscoCharacter {
   platform: string;
   sourceUid: string;
   name: string;
-  band: "mid" | "near";
   x: number;
   y: number;
   skinId: string;
@@ -137,7 +135,6 @@ export interface DiscoMessage {
   platform?: string;
   sourceUid?: string;
   name?: string;
-  band?: "mid" | "near";
   x?: number;
   y?: number;
   skinId?: string;

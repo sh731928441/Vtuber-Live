@@ -604,20 +604,20 @@
       <label class="f">气泡最大字数<input type="number" min="1" max="200" data-k="disco.bubble_max_chars"></label>
       <label class="f">默认移动距离<input type="number" min="1" data-k="disco.move_step"></label>
     </div>
-    <h3 style="margin-top:16px">活动范围</h3>
+    <h3 style="margin-top:16px">统一舞区</h3>
     <div class="row">
-      <label class="f">中景最小 X<input type="number" data-k="disco.bands.mid.x.0"></label>
-      <label class="f">中景最大 X<input type="number" data-k="disco.bands.mid.x.1"></label>
-      <label class="f">中景最小 Y<input type="number" data-k="disco.bands.mid.y.0"></label>
-      <label class="f">中景最大 Y<input type="number" data-k="disco.bands.mid.y.1"></label>
+      <label class="f">舞区最小 X<input type="number" data-k="disco.dance_floor.x.0"></label>
+      <label class="f">舞区最大 X<input type="number" data-k="disco.dance_floor.x.1"></label>
+      <label class="f">后侧最小 Y<input type="number" data-k="disco.dance_floor.y.0"></label>
+      <label class="f">前侧最大 Y<input type="number" data-k="disco.dance_floor.y.1"></label>
     </div>
     <div class="row">
-      <label class="f">近景最小 X<input type="number" data-k="disco.bands.near.x.0"></label>
-      <label class="f">近景最大 X<input type="number" data-k="disco.bands.near.x.1"></label>
-      <label class="f">近景最小 Y<input type="number" data-k="disco.bands.near.y.0"></label>
-      <label class="f">近景最大 Y<input type="number" data-k="disco.bands.near.y.1"></label>
+      <label class="f">后侧缩放<input type="number" min="0.01" step="0.01" data-k="disco.dance_floor.scale.0"></label>
+      <label class="f">前侧缩放<input type="number" min="0.01" step="0.01" data-k="disco.dance_floor.scale.1"></label>
+      <label class="f">后侧亮度<input type="number" min="0" max="1" step="0.01" data-k="disco.dance_floor.brightness.0"></label>
+      <label class="f">前侧亮度<input type="number" min="0" max="1" step="0.01" data-k="disco.dance_floor.brightness.1"></label>
     </div>
-    <p class="hint">坐标是角色脚底位置。范围缩小时，超界角色会立即夹回所属中景或近景活动带；不会在中景和近景之间穿梭。</p>
+    <p class="hint">坐标是角色脚底位置。统一舞区支持前后穿梭，越靠前角色越大越亮；范围缩小时超界角色会立即夹回舞区。移动支持上下左右和斜向，例如 <code>/disco 移动 左 20 上30</code>、<code>/disco 移动 下 30 右 10</code>；上会减小 Y，下会增大 Y。</p>
   </div>
   <div class="card">
     <h3>分层资源</h3>
@@ -1060,7 +1060,17 @@ function onField(el) {
   else if (el.type === 'number' || el.type === 'range' || el.dataset.k === 'tts.sample_steps') v = el.value === '' ? 0 : Number(el.value);
   else if (el.dataset.list) v = parseArgs(el.value);
   else v = el.value;
-  let p = setPatch(el.dataset.k, v);
+  const pathParts = el.dataset.k.split('.');
+  let p;
+  if (pathParts.length > 1 && /^\d+$/.test(pathParts[pathParts.length - 1])) {
+    const listPath = pathParts.slice(0, -1).join('.');
+    const current = getPath(CFG, listPath);
+    const list = Array.isArray(current) ? [...current] : [];
+    list[Number(pathParts[pathParts.length - 1])] = v;
+    p = setPatch(listPath, list);
+  } else {
+    p = setPatch(el.dataset.k, v);
+  }
   const aspectGroup = el.dataset.discoAspectGroup;
   const aspectDim = el.dataset.discoAspectDim;
   if (aspectGroup && aspectDim && getPath(CFG, `${aspectGroup}.lock_aspect`)) {

@@ -9,9 +9,11 @@ export const FALLBACK_CONFIG: DiscoConfig = {
   bubble_max_chars: 50,
   move_step: 20,
   world: { width: 3840, height: 1080, viewport_width: 1920, viewport_height: 1080 },
-  bands: {
-    mid: { z: 1, x: [260, 3580], y: [620, 800], scale: [0.4, 0.5], brightness: 0.88 },
-    near: { z: 2, x: [140, 3700], y: [790, 1040], scale: [0.52, 0.64], brightness: 1 },
+  dance_floor: {
+    x: [140, 3700],
+    y: [620, 1040],
+    scale: [0.4, 0.64],
+    brightness: [0.88, 1],
   },
   skins: [
     { id: "default", path: "/disco/assets/role/default.png" },

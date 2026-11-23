@@ -240,21 +240,11 @@ DEFAULTS = {
         "bubble_max_chars": 50,
         "move_step": 20,
         "world": {"width": 3840, "height": 1080, "viewport_width": 1920, "viewport_height": 1080},
-        "bands": {
-            "mid": {
-                "z": 1,
-                "x": [260, 3580],
-                "y": [620, 800],
-                "scale": [0.4, 0.5],
-                "brightness": 0.88,
-            },
-            "near": {
-                "z": 2,
-                "x": [140, 3700],
-                "y": [790, 1040],
-                "scale": [0.52, 0.64],
-                "brightness": 1.0,
-            },
+        "dance_floor": {
+            "x": [140, 3700],
+            "y": [620, 1040],
+            "scale": [0.4, 0.64],
+            "brightness": [0.88, 1.0],
         },
         "skins": [
             {"id": "default", "path": DEFAULT_DISCO_SKIN_PATH},
@@ -489,6 +479,7 @@ def _normalize_scene_item(raw, fallback_id=""):
 def normalize_disco(config_data):
     disco = config_data.get("disco")
     if isinstance(disco, dict):
+        disco.pop("bands", None)
         disco["skins"] = normalize_disco_skins(disco.get("skins"))
         resources = disco.get("resources") if isinstance(disco.get("resources"), dict) else {}
         normalized_resources = {}
@@ -539,19 +530,27 @@ def validate_disco(disco):
         ):
             return f"{label}的 X/Y 必须是有效数字"
 
-    bands = disco.get("bands") if isinstance(disco.get("bands"), dict) else {}
-    for band_id, label in (("mid", "中景"), ("near", "近景")):
-        band = bands.get(band_id)
-        if not isinstance(band, dict):
-            return f"{label}活动带配置缺失"
-        for axis, limit, axis_label in (("x", world_width, "X"), ("y", world_height, "Y")):
-            values = band.get(axis)
-            if not isinstance(values, list) or len(values) != 2:
-                return f"{label}活动带的 {axis_label} 范围格式无效"
-            low = _finite_number(values[0], float("nan"))
-            high = _finite_number(values[1], float("nan"))
-            if not math.isfinite(low) or not math.isfinite(high) or low < 0 or high > limit or low >= high:
-                return f"{label}活动带的 {axis_label} 范围无效"
+    dance_floor = disco.get("dance_floor") if isinstance(disco.get("dance_floor"), dict) else {}
+    for key, limit, label in (("x", world_width, "X"), ("y", world_height, "Y")):
+        values = dance_floor.get(key)
+        if not isinstance(values, list) or len(values) != 2:
+            return f"舞区的 {label} 范围格式无效"
+        low = _finite_number(values[0], float("nan"))
+        high = _finite_number(values[1], float("nan"))
+        if not math.isfinite(low) or not math.isfinite(high) or low < 0 or high > limit or low >= high:
+            return f"舞区的 {label} 范围无效"
+    for key, label in (("scale", "缩放"), ("brightness", "亮度")):
+        values = dance_floor.get(key)
+        if not isinstance(values, list) or len(values) != 2:
+            return f"舞区的 {label} 范围格式无效"
+        back = _finite_number(values[0], float("nan"))
+        front = _finite_number(values[1], float("nan"))
+        if not math.isfinite(back) or not math.isfinite(front) or back < 0 or front < back:
+            return f"舞区的 {label} 范围无效"
+        if key == "scale" and back <= 0:
+            return "舞区的缩放范围必须大于 0"
+        if key == "brightness" and front > 1:
+            return "舞区的亮度范围必须在 0 至 1 之间"
 
     items = disco.get("items") if isinstance(disco.get("items"), list) else []
     if len(items) > DISCO_ITEMS_LIMIT:
@@ -610,6 +609,51 @@ def _merge(base, override):
     return out
 
 
+def migrate_disco_dance_floor(config_data):
+    disco = config_data.get("disco") if isinstance(config_data, dict) else None
+    if not isinstance(disco, dict):
+        return config_data
+    if isinstance(disco.get("dance_floor"), dict):
+        disco.pop("bands", None)
+        return config_data
+    bands = disco.get("bands")
+    mid = bands.get("mid") if isinstance(bands, dict) else None
+    near = bands.get("near") if isinstance(bands, dict) else None
+    if isinstance(mid, dict) and isinstance(near, dict):
+        x_mid, x_near = mid.get("x"), near.get("x")
+        y_mid, y_near = mid.get("y"), near.get("y")
+        mid_scale, near_scale = mid.get("scale"), near.get("scale")
+        if (
+            isinstance(x_mid, list)
+            and len(x_mid) == 2
+            and isinstance(x_near, list)
+            and len(x_near) == 2
+            and isinstance(y_mid, list)
+            and len(y_mid) == 2
+            and isinstance(y_near, list)
+            and len(y_near) == 2
+            and isinstance(mid_scale, list)
+            and len(mid_scale) == 2
+            and isinstance(near_scale, list)
+            and len(near_scale) == 2
+        ):
+            mid_x = sorted((_finite_number(x_mid[0]), _finite_number(x_mid[1])))
+            near_x = sorted((_finite_number(x_near[0]), _finite_number(x_near[1])))
+            mid_y = sorted((_finite_number(y_mid[0]), _finite_number(y_mid[1])))
+            near_y = sorted((_finite_number(y_near[0]), _finite_number(y_near[1])))
+            disco["dance_floor"] = {
+                "x": [min(mid_x[0], near_x[0]), max(mid_x[1], near_x[1])],
+                "y": [min(mid_y[0], near_y[0]), max(mid_y[1], near_y[1])],
+                "scale": [_finite_number(mid_scale[0]), _finite_number(near_scale[1])],
+                "brightness": [
+                    _finite_number(mid.get("brightness"), 0.88),
+                    _finite_number(near.get("brightness"), 1.0),
+                ],
+            }
+    disco.pop("bands", None)
+    return config_data
+
+
 def load():
     data = {}
     if os.path.exists(CONFIG_PATH):
@@ -618,7 +662,7 @@ def load():
                 data = json.load(f)
         except (OSError, ValueError):
             os.replace(CONFIG_PATH, CONFIG_PATH + ".broken")
-    cfg = normalize_disco(_merge(DEFAULTS, data))
+    cfg = normalize_disco(_merge(DEFAULTS, migrate_disco_dance_floor(data)))
     save(cfg)
     return cfg
 

@@ -1,5 +1,5 @@
 import { Container, Graphics, Sprite, Text, Texture } from "pixi.js";
-import { bandScale, layerZ } from "./geometry";
+import { danceFloorBrightness, danceFloorScale, layerZ } from "./geometry";
 import { loadResourceManifest, type ResourceError } from "./resources";
 import type { DiscoCharacter, DiscoConfig } from "./types";
 
@@ -20,8 +20,7 @@ export function fitSkinScale(width: number, height: number): number {
 }
 
 export class CharacterLayer {
-  readonly mid: Container;
-  readonly near: Container;
+  readonly dancers: Container;
   private readonly views = new Map<string, CharacterView>();
   private readonly textures = new Map<string, Texture>();
   private fallbackTexture: Texture;
@@ -30,13 +29,10 @@ export class CharacterLayer {
 
   constructor(parent: Container, config: DiscoConfig) {
     this.config = config;
-    this.mid = new Container();
-    this.near = new Container();
-    this.mid.sortableChildren = true;
-    this.near.sortableChildren = true;
-    this.mid.zIndex = 30;
-    this.near.zIndex = 40;
-    parent.addChild(this.mid, this.near);
+    this.dancers = new Container();
+    this.dancers.sortableChildren = true;
+    this.dancers.zIndex = 30;
+    parent.addChild(this.dancers);
     this.fallbackTexture = makeFallbackCharacterTexture();
   }
 
@@ -99,11 +95,10 @@ export class CharacterLayer {
       existing.updateCharacter(character, animate);
       return;
     }
-    const parent = character.band === "near" ? this.near : this.mid;
     const texture = this.textures.get(character.skinId) ?? this.fallbackTexture;
     const view = new CharacterView(character, texture, this.config);
     this.views.set(character.uid, view);
-    parent.addChild(view.container);
+    this.dancers.addChild(view.container);
     this.sort(view);
   }
 
@@ -111,8 +106,7 @@ export class CharacterLayer {
     for (const view of this.views.values()) {
       view.container.destroy({ children: true, texture: false });
     }
-    this.mid.removeChildren();
-    this.near.removeChildren();
+    this.dancers.removeChildren();
     this.views.clear();
     for (const character of characters) {
       this.upsert(character, false);
@@ -166,7 +160,7 @@ export class CharacterLayer {
   }
 
   private sort(view: CharacterView): void {
-    view.container.zIndex = layerZ(this.config, view.model.band, view.model.y);
+    view.container.zIndex = layerZ(view.model.y);
   }
 }
 
@@ -252,7 +246,7 @@ class CharacterView {
     this.targetX = character.x;
     this.targetY = character.y;
     this.name.text = character.name;
-    this.container.alpha = this.config.bands[character.band].brightness;
+    this.container.alpha = danceFloorBrightness(this.config.dance_floor, character.y);
     if (!animate) {
       this.container.position.set(character.x, character.y);
     }
@@ -273,13 +267,10 @@ class CharacterView {
 
   applyVisualConfig(config: DiscoConfig): void {
     this.config = config;
-    this.baseScale = bandScale(config.bands[this.model.band], this.model.y);
+    this.baseScale = danceFloorScale(config.dance_floor, this.model.y);
     this.container.scale.set(this.baseScale);
-    if (this.model.band === "mid") {
-      this.name.style.fill = 0xd9cee9;
-    } else {
-      this.name.style.fill = 0xffffff;
-    }
+    this.name.style.fill = 0xffffff;
+    this.container.alpha = danceFloorBrightness(config.dance_floor, this.model.y);
   }
 
   update(deltaMs: number, now: number, degraded: boolean): void {
@@ -288,8 +279,8 @@ class CharacterView {
     this.container.y += (this.targetY - this.container.y) * amount;
     this.model.x = this.container.x;
     this.model.y = this.container.y;
-    this.baseScale = bandScale(this.config.bands[this.model.band], this.container.y);
-    this.container.alpha = this.config.bands[this.model.band].brightness;
+    this.baseScale = danceFloorScale(this.config.dance_floor, this.container.y);
+    this.container.alpha = danceFloorBrightness(this.config.dance_floor, this.container.y);
 
     const t = now / 1000 + this.phase;
     const jump = degraded ? 0 : Math.abs(Math.sin(t * 3.2)) * 7;
