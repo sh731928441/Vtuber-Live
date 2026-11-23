@@ -604,6 +604,17 @@
       <label class="f">气泡最大字数<input type="number" min="1" max="200" data-k="disco.bubble_max_chars"></label>
       <label class="f">默认移动距离<input type="number" min="1" data-k="disco.move_step"></label>
     </div>
+    <div class="row" style="margin-top:10px">
+      <span class="btn b" id="discoNpcAdd">+ 添加 NPC</span>
+      <span class="btn r" id="discoNpcDelete">删除最后一个 NPC</span>
+      <span class="hint" id="discoNpcHint">当前没有手动 NPC</span>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label class="f">目标 UID<input id="discoBubbleUid" placeholder="用户 UID 或 npc:runtime:1"></label>
+      <label class="f">气泡内容<input id="discoBubbleText" placeholder="显示在角色图片上方"></label>
+      <span class="btn b" id="discoBubbleSend" style="margin-top:18px">发送气泡</span>
+    </div>
+    <p class="hint">手动 NPC 名称按 npc1、npc2 递增；真实用户与 NPC 同名也使用不同内部身份。指定 UID 发送气泡只更新 Disco 画面，不会进入 AI、TTS 或直播事件处理。</p>
     <h3 style="margin-top:16px">统一舞区</h3>
     <div class="row">
       <label class="f">舞区最小 X<input type="number" data-k="disco.dance_floor.x.0"></label>
@@ -793,6 +804,8 @@
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 let CFG = {};
 let CLI_PRESETS = {};
+let DISCO_NPCS = [];
+let discoSkinScaleTimer = null;
 const parseArgs = s => s.split('\n').map(x => x.trim()).filter(x => x !== '').map(x => x === '""' ? '' : x);
 const api = (url, body) => fetch(url, body === undefined ? {} : {method: 'POST', headers: {'Content-Type': 'application/json', 'X-BVB': '1'}, body: JSON.stringify(body)}).then(r => r.json());
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('on'), 2600); }
@@ -850,7 +863,9 @@ let DISCO_SKIN_FILES = [];
 function discoSkins() {
   const raw = Array.isArray(CFG.disco?.skins) ? CFG.disco.skins : [];
   const seen = new Set(['default']);
-  const skins = [{id: 'default', path: DISCO_DEFAULT_SKIN}];
+  const defaultItem = raw.find(item => item?.id === 'default' || item?.path === DISCO_DEFAULT_SKIN);
+  const defaultScale = Number(defaultItem?.scale);
+  const skins = [{id: 'default', path: DISCO_DEFAULT_SKIN, scale: Number.isFinite(defaultScale) && defaultScale > 0 ? defaultScale : 1}];
   for (const item of raw) {
     if (!item || !item.path || item.id === 'default' || item.path === DISCO_DEFAULT_SKIN) continue;
     let id = String(item.id || item.path.split('/').pop().replace(/\.[^.]+$/, '') || 'skin')
@@ -860,7 +875,8 @@ function discoSkins() {
     let n = 2;
     while (seen.has(id)) id = `${base}-${n++}`;
     seen.add(id);
-    skins.push({id, path: String(item.path)});
+    const scale = Number(item.scale);
+    skins.push({id, path: String(item.path), scale: Number.isFinite(scale) && scale > 0 ? scale : 1});
   }
   return skins;
 }
@@ -874,6 +890,7 @@ function renderDiscoSkins() {
         <code>${esc(skin.path)}</code>
         <span class="hint">${skin.id === 'default' ? '固定入口，不可从列表删除；替换 default.png 即可换图' : '用户创建角色时随机选用'}</span>
       </span>
+      <label class="f" style="max-width:110px">基础缩放<input type="number" min="0.1" max="5" step="0.05" value="${skin.scale}" data-skin-scale="${i}"></label>
       ${skin.id === 'default'
         ? '<span class="tag warn">不可删除</span>'
         : `<span class="btn sm r" data-skin-delete="${i}">删除</span>`}
@@ -895,6 +912,18 @@ async function loadDiscoSkinFiles() {
   }
   renderDiscoSkins();
 }
+async function updateDiscoSkinScale(index, value, rerender = true) {
+  const skins = discoSkins();
+  if (!skins[index]) return;
+  let scale = Number(value);
+  if (!Number.isFinite(scale) || scale <= 0) scale = 1;
+  scale = Math.min(5, Math.max(0.1, scale));
+  skins[index].scale = scale;
+  try {
+    await saveNow({disco: {skins}}, '皮肤基础缩放已保存');
+    if (rerender) renderDiscoSkins();
+  } catch (_) {}
+}
 function renderDiscoPower(running) {
   const button = $('#discoPower');
   const status = $('#discoServiceState');
@@ -904,7 +933,95 @@ function renderDiscoPower(running) {
   button.classList.toggle('r', running);
   status.textContent = running ? 'Disco 服务运行中' : 'Disco 服务已暂停';
   status.style.color = running ? 'var(--green)' : '';
+  if (!running) DISCO_NPCS = [];
+  renderDiscoNpcStatus(running);
 }
+function npcSerial(uid) {
+  const value = Number(String(uid || '').split(':').pop());
+  return Number.isFinite(value) ? value : 0;
+}
+function setDiscoNpcs(npcs) {
+  DISCO_NPCS = (Array.isArray(npcs) ? npcs : [])
+    .filter(npc => npc?.roleType === 'npc')
+    .sort((a, b) => npcSerial(a.uid) - npcSerial(b.uid));
+  renderDiscoNpcStatus(Boolean(CFG._disco_running));
+}
+function renderDiscoNpcStatus(running) {
+  const hint = $('#discoNpcHint');
+  if (hint) {
+    hint.textContent = DISCO_NPCS.length
+      ? `共 ${DISCO_NPCS.length} 个手动 NPC，下一个将删除 ${DISCO_NPCS[DISCO_NPCS.length - 1].name}`
+      : '当前没有手动 NPC';
+  }
+  renderDiscoNpcControls(running);
+}
+function renderDiscoNpcControls(running) {
+  for (const id of ['discoNpcAdd', 'discoNpcDelete', 'discoBubbleSend']) {
+    const button = $(`#${id}`);
+    if (!button) continue;
+    const allowed = running && (id !== 'discoNpcDelete' || DISCO_NPCS.length > 0);
+    button.style.opacity = allowed ? '' : '0.55';
+    button.setAttribute('aria-disabled', allowed ? 'false' : 'true');
+  }
+}
+async function loadDiscoNpcs() {
+  try {
+    const result = await api('/api/disco/npcs');
+    setDiscoNpcs(result.npcs);
+  } catch (_) {
+    setDiscoNpcs([]);
+  }
+}
+async function addDiscoNpc() {
+  if (!CFG._disco_running) return toast('Disco 服务未运行');
+  const button = $('#discoNpcAdd');
+  button.style.opacity = '0.55';
+  try {
+    const result = await api('/api/disco/npcs/add', {});
+    if (!result.ok) return toast(result.error || '添加 NPC 失败');
+    setDiscoNpcs(result.npcs);
+    toast(`已添加 ${result.message?.name || 'NPC'}`);
+  } catch (error) {
+    toast(`添加 NPC 失败：${error.message || error}`);
+  } finally {
+    renderDiscoNpcControls(Boolean(CFG._disco_running));
+  }
+}
+async function deleteDiscoNpc() {
+  if (!CFG._disco_running) return toast('Disco 服务未运行');
+  const npc = DISCO_NPCS[DISCO_NPCS.length - 1];
+  if (!npc) return toast('当前没有手动 NPC');
+  try {
+    const result = await api('/api/disco/npcs/delete', {uid: npc.uid});
+    if (!result.ok) return toast(result.error || '删除 NPC 失败');
+    setDiscoNpcs(result.npcs);
+    toast(`已删除 ${npc.name}`);
+  } catch (error) {
+    toast(`删除 NPC 失败：${error.message || error}`);
+  }
+}
+async function sendDiscoBubble() {
+  if (!CFG._disco_running) return toast('Disco 服务未运行');
+  const uid = $('#discoBubbleUid').value.trim();
+  const text = $('#discoBubbleText').value.trim();
+  if (!uid) return toast('请输入目标 UID');
+  if (!text) return toast('请输入气泡内容');
+  const button = $('#discoBubbleSend');
+  button.style.opacity = '0.55';
+  try {
+    const result = await api('/api/disco/bubble', {uid, text});
+    if (!result.ok) return toast(result.error || '发送气泡失败');
+    $('#discoBubbleText').value = '';
+    toast(`已向 ${uid} 发送气泡`);
+  } catch (error) {
+    toast(`发送气泡失败：${error.message || error}`);
+  } finally {
+    renderDiscoNpcControls(Boolean(CFG._disco_running));
+  }
+}
+$('#discoNpcAdd').onclick = () => void addDiscoNpc();
+$('#discoNpcDelete').onclick = () => void deleteDiscoNpc();
+$('#discoBubbleSend').onclick = () => void sendDiscoBubble();
 const DISCO_FIXED_RESOURCES = [
   {id: 'ceilingWall', label: '远景墙'},
   {id: 'djBooth', label: '中央 DJ 台'},
@@ -1095,6 +1212,14 @@ function onField(el) {
 }
 document.addEventListener('change', e => {
   const el = e.target;
+  if (el.dataset?.skinScale !== undefined) {
+    if (discoSkinScaleTimer) {
+      clearTimeout(discoSkinScaleTimer);
+      discoSkinScaleTimer = null;
+    }
+    void updateDiscoSkinScale(Number(el.dataset.skinScale), el.value);
+    return;
+  }
   if (el.dataset?.discoItemField) { void updateDiscoItemField(el).catch(() => {}); return; }
   if (el.dataset?.k) {
     onField(el);
@@ -1104,6 +1229,15 @@ document.addEventListener('change', e => {
 document.addEventListener('input', e => {
   if (e.target.dataset?.k === 'stats.token_label') $('#s_token_label').textContent = e.target.value || '本场已用 Token';
   if (e.target.dataset?.k && e.target.type === 'range') onField(e.target);
+  if (e.target.dataset?.skinScale !== undefined) {
+    if (discoSkinScaleTimer) clearTimeout(discoSkinScaleTimer);
+    const index = Number(e.target.dataset.skinScale);
+    const value = e.target.value;
+    discoSkinScaleTimer = setTimeout(() => {
+      discoSkinScaleTimer = null;
+      void updateDiscoSkinScale(index, value, false);
+    }, 400);
+  }
 });
 function discoItems() {
   return Array.isArray(CFG.disco?.items) ? CFG.disco.items.map(item => ({...item})) : [];
@@ -1287,10 +1421,33 @@ function handle(m) {
     case 'disco':
       if (m.action === 'snapshot' || m.action === 'config') {
         const running = Boolean(m.enabled);
+        if (m.action === 'snapshot') {
+          setDiscoNpcs(m.characters);
+        }
+        if (!running) DISCO_NPCS = [];
         CFG.disco = CFG.disco || {};
         CFG.disco.enabled = running;
         CFG._disco_running = running;
         renderDiscoPower(running);
+        if (m.action === 'config' && running) void loadDiscoNpcs();
+      } else if (m.action === 'create' && m.roleType === 'npc') {
+        const index = DISCO_NPCS.findIndex(npc => npc.uid === m.uid);
+        const npc = {
+          uid: m.uid,
+          platform: m.platform,
+          sourceUid: m.sourceUid,
+          name: m.name,
+          roleType: 'npc',
+          x: m.x,
+          y: m.y,
+          skinId: m.skinId,
+          bubble: null,
+        };
+        if (index >= 0) DISCO_NPCS[index] = npc;
+        else DISCO_NPCS.push(npc);
+        setDiscoNpcs(DISCO_NPCS);
+      } else if (m.action === 'despawn' && m.uid) {
+        setDiscoNpcs(DISCO_NPCS.filter(npc => npc.uid !== m.uid));
       }
       break;
   }
@@ -1665,7 +1822,7 @@ $('#discoSkinAdd').onclick = async () => {
   const base = id;
   let n = 2;
   while (ids.has(id)) id = `${base}-${n++}`;
-  await saveNow({disco: {skins: [...skins, {id, path}]}}, '角色皮肤已新增');
+  await saveNow({disco: {skins: [...skins, {id, path, scale: 1}]}}, '角色皮肤已新增');
   renderDiscoSkins();
 };
 $('#discoSkinList').onclick = async e => {
@@ -1870,7 +2027,7 @@ async function saveAuto() {
 $('#apRefresh').onclick = loadPlaylists;
 
 api('/api/ai/cli/presets').then(r => { CLI_PRESETS = r; fillForm(); });
-loadConfig().then(() => { loadWeights(); loadDevices(); loadL2d(); loadDiscoSkinFiles(); loadPlaylists(); loadGames(); api('/api/songs/state').then(renderSongs); });
+loadConfig().then(() => { loadWeights(); loadDevices(); loadL2d(); loadDiscoSkinFiles(); loadDiscoNpcs(); loadPlaylists(); loadGames(); api('/api/songs/state').then(renderSongs); });
 connectWs();
 </script>
 </body>

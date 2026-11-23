@@ -37,6 +37,7 @@ export interface SceneItemSpec extends ResourceSpec {
 export interface SkinSpec {
   id: string;
   path: string;
+  scale: number;
 }
 
 export interface LightConfig {
@@ -100,11 +101,14 @@ export interface CharacterBubble {
   ttlMs: number;
 }
 
+export type CharacterKind = "viewer" | "npc";
+
 export interface DiscoCharacter {
   uid: string;
   platform: string;
   sourceUid: string;
   name: string;
+  roleType: CharacterKind;
   x: number;
   y: number;
   skinId: string;
@@ -135,6 +139,7 @@ export interface DiscoMessage {
   platform?: string;
   sourceUid?: string;
   name?: string;
+  roleType?: CharacterKind;
   x?: number;
   y?: number;
   skinId?: string;

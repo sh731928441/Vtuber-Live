@@ -127,10 +127,11 @@ function isCharacterData(value: DiscoCharacter): value is DiscoCharacter {
 }
 
 function normalizeCharacter(character: DiscoCharacter): DiscoCharacter {
-  const normalized = {
+  const normalized: DiscoCharacter = {
     ...character,
     platform: character.platform ?? "bilibili",
     sourceUid: character.sourceUid ?? "",
+    roleType: character.roleType === "npc" ? "npc" : "viewer",
     bubble: character.bubble
       ? { text: String(character.bubble.text), ttlMs: Number(character.bubble.ttlMs) || 4200 }
       : null,

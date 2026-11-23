@@ -88,6 +88,7 @@ class DiscoCharacter:
     skin_id: str
     last_seen: float
     created_at: float
+    role_type: str = "viewer"
     bubble_text: str = ""
     bubble_expires_at: float = 0.0
 
@@ -106,6 +107,7 @@ class DiscoCharacter:
             "x": round(self.x, 2),
             "y": round(self.y, 2),
             "skinId": self.skin_id,
+            "roleType": self.role_type,
             "bubble": bubble,
         }
 
@@ -130,6 +132,7 @@ class DiscoManager:
         self._wall_clock = wall_clock
         self._rng = rng or random.Random()
         self.characters: dict[str, DiscoCharacter] = {}
+        self.npc_serial = 0
         self.seq = 0
         self.rejected = 0
         self._enabled = bool((self._get_config() or {}).get("enabled", False))
@@ -198,15 +201,15 @@ class DiscoManager:
             uid = ""
         name = _normal_name(event.get("name")) or "新朋友"
         if uid:
-            return f"{platform}:{uid}", platform, uid
+            return f"viewer:{platform}:{uid}", platform, uid
         raw_name = _normal_name(event.get("name"))
         if not raw_name:
             self.rejected += 1
             self._log("warning", "Disco 拒绝缺少 UID 和名称的直播事件")
             return None
         digest = hashlib.sha1(f"{platform}\0{raw_name.casefold()}".encode("utf-8")).hexdigest()[:16]
-        self._log("info", f"Disco 用户缺少 UID，使用名称回退键：{platform}:name:{digest}")
-        return f"{platform}:name:{digest}", platform, raw_name
+        self._log("info", f"Disco 用户缺少 UID，使用名称回退键：viewer:{platform}:name:{digest}")
+        return f"viewer:{platform}:name:{digest}", platform, raw_name
 
     def _dance_floor(self) -> dict[str, list[float]] | None:
         floor = self.cfg.get("dance_floor")
@@ -310,9 +313,81 @@ class DiscoManager:
             sourceUid=character.uid,
             name=character.name,
             skinId=character.skin_id,
+            roleType=character.role_type,
             x=round(character.x, 2),
             y=round(character.y, 2),
         )
+
+    def list_manual_npcs(self) -> list[dict[str, Any]]:
+        now = self._clock()
+        return [
+            character.snapshot(now)
+            for character in sorted(self.characters.values(), key=lambda item: item.created_at)
+            if character.role_type == "npc"
+        ]
+
+    def add_manual_npc(self) -> tuple[dict[str, Any] | None, str | None]:
+        if not self.enabled:
+            return None, "Disco 服务未运行"
+        floor = self._dance_floor()
+        if not floor:
+            return None, "Disco 舞区配置无效"
+        max_characters = max(0, int(_finite_number(self.cfg.get("max_characters"), 100)))
+        if len(self.characters) >= max_characters:
+            return None, f"已达到角色上限 {max_characters}"
+        now = self._clock()
+        self.npc_serial += 1
+        serial = self.npc_serial
+        key = f"npc:runtime:{serial}"
+        character = DiscoCharacter(
+            key=key,
+            platform="npc",
+            uid=str(serial),
+            name=f"npc{serial}",
+            x=self._rng.uniform(*floor["x"]),
+            y=self._rng.uniform(*floor["y"]),
+            skin_id=self._choose_skin(),
+            last_seen=now,
+            created_at=now,
+            role_type="npc",
+        )
+        self.characters[key] = character
+        return self._emit_create(character), None
+
+    def remove_manual_npc(self, uid: Any) -> tuple[dict[str, Any] | None, str | None]:
+        if not self.enabled:
+            return None, "Disco 服务未运行"
+        key = str(uid or "").strip()
+        character = self.characters.get(key)
+        if not character:
+            return None, "角色不存在"
+        if character.role_type != "npc":
+            return None, "只能删除手动 NPC"
+        del self.characters[key]
+        return self._publish("despawn", uid=key, reason="manual_delete"), None
+
+    def send_bubble(
+        self,
+        uid: Any,
+        text: Any,
+        platform: str = "bilibili",
+    ) -> tuple[dict[str, Any] | None, str | None]:
+        if not self.enabled:
+            return None, "Disco 服务未运行"
+        clean = _normal_name(text)
+        if not clean:
+            return None, "气泡内容不能为空"
+        target = str(uid or "").strip()
+        if not target:
+            return None, "角色不存在"
+        character = self.characters.get(target)
+        if not character:
+            normalized_platform = str(platform or "bilibili").strip().lower() or "bilibili"
+            character = self.characters.get(f"viewer:{normalized_platform}:{target}")
+        if not character:
+            return None, "角色不存在"
+        message = self._say(character, clean, self._clock())
+        return message, None
 
     def _say(self, character: DiscoCharacter, text: Any, now: float) -> dict[str, Any] | None:
         clean = _normal_name(text)
@@ -498,6 +573,8 @@ class DiscoManager:
         if ttl_seconds <= 0:
             return messages
         for key, character in list(self.characters.items()):
+            if character.role_type == "npc":
+                continue
             if now - character.last_seen >= ttl_seconds:
                 del self.characters[key]
                 messages.append(self._publish("despawn", uid=key, reason="timeout"))

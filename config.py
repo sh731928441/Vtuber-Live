@@ -247,12 +247,12 @@ DEFAULTS = {
             "brightness": [0.88, 1.0],
         },
         "skins": [
-            {"id": "default", "path": DEFAULT_DISCO_SKIN_PATH},
-            {"id": "dog1", "path": "/disco/assets/role/dog1.gif"},
-            {"id": "dog2", "path": "/disco/assets/role/dog2.gif"},
-            {"id": "dog3", "path": "/disco/assets/role/dog3.gif"},
-            {"id": "dog4", "path": "/disco/assets/role/dog4.gif"},
-            {"id": "dsh1", "path": "/disco/assets/role/dsh1.png"},
+            {"id": "default", "path": DEFAULT_DISCO_SKIN_PATH, "scale": 1},
+            {"id": "dog1", "path": "/disco/assets/role/dog1.gif", "scale": 1},
+            {"id": "dog2", "path": "/disco/assets/role/dog2.gif", "scale": 1},
+            {"id": "dog3", "path": "/disco/assets/role/dog3.gif", "scale": 1},
+            {"id": "dog4", "path": "/disco/assets/role/dog4.gif", "scale": 1},
+            {"id": "dsh1", "path": "/disco/assets/role/dsh1.png", "scale": 1},
         ],
         "resources": {
             "ceilingWall": {
@@ -376,6 +376,13 @@ def _skin_id(value, fallback):
     return clean or fallback
 
 
+def _skin_scale(value):
+    scale = _finite_number(value, 1)
+    if scale <= 0:
+        return 1.0
+    return min(5.0, max(0.1, scale))
+
+
 def _skin_items(raw):
     if isinstance(raw, dict):
         numeric = sorted(
@@ -391,6 +398,7 @@ def _skin_items(raw):
 def normalize_disco_skins(raw):
     """Migrate legacy indexed objects and enforce the protected default skin."""
     specs = []
+    default_scale = 1.0
     used_ids = {"default"}
     used_paths = {DEFAULT_DISCO_SKIN_PATH}
     for item in _skin_items(raw):
@@ -406,6 +414,7 @@ def normalize_disco_skins(raw):
         requested_id = str(item.get("id") or "").strip().lower()
         is_default = requested_id == "default" or stem.casefold() in {"default", "dsh0"}
         if is_default:
+            default_scale = _skin_scale(item.get("scale"))
             continue
         if path in used_paths:
             continue
@@ -419,8 +428,8 @@ def normalize_disco_skins(raw):
             suffix += 1
         used_ids.add(skin_id)
         used_paths.add(path)
-        specs.append({"id": skin_id, "path": path})
-    return [{"id": "default", "path": DEFAULT_DISCO_SKIN_PATH}, *specs]
+        specs.append({"id": skin_id, "path": path, "scale": _skin_scale(item.get("scale"))})
+    return [{"id": "default", "path": DEFAULT_DISCO_SKIN_PATH, "scale": default_scale}, *specs]
 
 
 def normalize_disco_asset_path(value):

@@ -16,12 +16,12 @@ export const FALLBACK_CONFIG: DiscoConfig = {
     brightness: [0.88, 1],
   },
   skins: [
-    { id: "default", path: "/disco/assets/role/default.png" },
-    { id: "dog1", path: "/disco/assets/role/dog1.gif" },
-    { id: "dog2", path: "/disco/assets/role/dog2.gif" },
-    { id: "dog3", path: "/disco/assets/role/dog3.gif" },
-    { id: "dog4", path: "/disco/assets/role/dog4.gif" },
-    { id: "dsh1", path: "/disco/assets/role/dsh1.png" },
+    { id: "default", path: "/disco/assets/role/default.png", scale: 1 },
+    { id: "dog1", path: "/disco/assets/role/dog1.gif", scale: 1 },
+    { id: "dog2", path: "/disco/assets/role/dog2.gif", scale: 1 },
+    { id: "dog3", path: "/disco/assets/role/dog3.gif", scale: 1 },
+    { id: "dog4", path: "/disco/assets/role/dog4.gif", scale: 1 },
+    { id: "dsh1", path: "/disco/assets/role/dsh1.png", scale: 1 },
   ],
   resources: {
     ceilingWall: resource("/disco/assets/scene/ceiling-wall.svg", 1920, 540, 3840, 1080),

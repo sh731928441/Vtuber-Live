@@ -504,6 +504,50 @@ def build_web(app: App):
             "files": config.disco_role_assets(),
         })
 
+    @routes.get("/api/disco/npcs")
+    async def disco_npcs(_):
+        return web.json_response({
+            "ok": True,
+            "enabled": app.disco.enabled,
+            "npcs": app.disco.list_manual_npcs(),
+        })
+
+    @routes.post("/api/disco/npcs/add")
+    async def disco_npc_add(_):
+        message, error = app.disco.add_manual_npc()
+        if error:
+            status = 409 if "上限" in error or "未运行" in error else 400
+            return web.json_response({"ok": False, "error": error}, status=status)
+        return web.json_response({"ok": True, "message": message, "npcs": app.disco.list_manual_npcs()})
+
+    @routes.post("/api/disco/npcs/delete")
+    async def disco_npc_delete(request):
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+        message, error = app.disco.remove_manual_npc((payload or {}).get("uid"))
+        if error:
+            status = 404 if error == "角色不存在" else (409 if "未运行" in error else 400)
+            return web.json_response({"ok": False, "error": error}, status=status)
+        return web.json_response({"ok": True, "message": message, "npcs": app.disco.list_manual_npcs()})
+
+    @routes.post("/api/disco/bubble")
+    async def disco_bubble(request):
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+        message, error = app.disco.send_bubble(
+            (payload or {}).get("uid"),
+            (payload or {}).get("text"),
+            app.platform,
+        )
+        if error:
+            status = 404 if error == "角色不存在" else (409 if "未运行" in error else 400)
+            return web.json_response({"ok": False, "error": error}, status=status)
+        return web.json_response({"ok": True, "message": message})
+
     @routes.get("/game")
     async def game_page(_):
         return page("game.html")

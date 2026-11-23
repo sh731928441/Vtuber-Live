@@ -77,7 +77,10 @@ export class CharacterLayer {
       this.textures.set(id, Texture.from(image));
     }
     for (const view of this.views.values()) {
-      view.setTexture(this.textures.get(view.model.skinId) ?? this.fallbackTexture);
+      view.setTexture(
+        this.textures.get(view.model.skinId) ?? this.fallbackTexture,
+        this.skinScale(view.model.skinId),
+      );
     }
     onErrors?.(result.errors);
   }
@@ -85,6 +88,10 @@ export class CharacterLayer {
   setConfig(config: DiscoConfig): void {
     this.config = config;
     for (const character of this.views.values()) {
+      character.setTexture(
+        this.textures.get(character.model.skinId) ?? this.fallbackTexture,
+        this.skinScale(character.model.skinId),
+      );
       character.applyVisualConfig(config);
     }
   }
@@ -93,10 +100,14 @@ export class CharacterLayer {
     const existing = this.views.get(character.uid);
     if (existing) {
       existing.updateCharacter(character, animate);
+      existing.setTexture(
+        this.textures.get(character.skinId) ?? this.fallbackTexture,
+        this.skinScale(character.skinId),
+      );
       return;
     }
     const texture = this.textures.get(character.skinId) ?? this.fallbackTexture;
-    const view = new CharacterView(character, texture, this.config);
+    const view = new CharacterView(character, texture, this.config, this.skinScale(character.skinId));
     this.views.set(character.uid, view);
     this.dancers.addChild(view.container);
     this.sort(view);
@@ -162,6 +173,12 @@ export class CharacterLayer {
   private sort(view: CharacterView): void {
     view.container.zIndex = layerZ(view.model.y);
   }
+
+  private skinScale(skinId: string): number {
+    const skin = this.config.skins.find((entry) => entry.id === skinId);
+    const scale = Number(skin?.scale);
+    return Number.isFinite(scale) && scale > 0 ? scale : 1;
+  }
 }
 
 class CharacterView {
@@ -177,11 +194,12 @@ class CharacterView {
   private targetY: number;
   private baseScale = 1;
   private textureScale = 1;
+  private artHeight = 176;
   private phase = Math.random() * Math.PI * 2;
   private bubbleExpiresAt = 0;
   private config: DiscoConfig;
 
-  constructor(character: DiscoCharacter, texture: Texture, config: DiscoConfig) {
+  constructor(character: DiscoCharacter, texture: Texture, config: DiscoConfig, skinScale = 1) {
     this.model = { ...character };
     this.targetX = character.x;
     this.targetY = character.y;
@@ -195,7 +213,7 @@ class CharacterView {
     } else {
       this.sprite = new Sprite(texture);
       this.sprite.anchor.set(0.5, 1);
-      this.textureScale = fitSkinScale(texture.width, texture.height);
+      this.textureScale = fitSkinScale(texture.width, texture.height) * skinScale;
       this.sprite.scale.set(this.textureScale);
       this.fallback = null;
     }
@@ -203,6 +221,7 @@ class CharacterView {
     if (this.fallback) {
       this.fallback.position.set(-54, -176);
     }
+    this.artHeight = this.fallback ? 176 : texture.height * this.textureScale;
 
     this.name = new Text({
       text: character.name,
@@ -215,8 +234,8 @@ class CharacterView {
         align: "center",
       },
     });
-    this.name.anchor.set(0.5, 1);
-    this.name.y = -180;
+    this.name.anchor.set(0.5, 0);
+    this.name.y = 6;
     this.container.addChild(this.name);
 
     this.bubble = new Container();
@@ -234,6 +253,7 @@ class CharacterView {
       },
     });
     this.bubble.addChild(this.bubbleBackground, this.bubbleText);
+    this.updateBubblePosition();
     this.bubble.visible = false;
     this.container.addChild(this.bubble);
 
@@ -256,12 +276,14 @@ class CharacterView {
     }
   }
 
-  setTexture(texture: Texture): void {
+  setTexture(texture: Texture, skinScale = 1): void {
     if (!this.fallback) {
       this.sprite.texture = texture;
-      this.textureScale = fitSkinScale(texture.width, texture.height);
+      this.textureScale = fitSkinScale(texture.width, texture.height) * skinScale;
+      this.artHeight = texture.height * this.textureScale;
       this.sprite.scale.set(this.textureScale);
       this.sprite.scale.x = this.textureScale * (this.model.direction === "right" ? -1 : 1);
+      this.updateBubblePosition();
     }
   }
 
@@ -309,9 +331,13 @@ class CharacterView {
       .roundRect(-width / 2, -height, width, height, 10)
       .fill({ color: 0xffffff, alpha: 0.94 })
       .stroke({ width: 2, color: 0xff70d9, alpha: 0.95 });
-    this.bubble.position.set(0, -196);
+    this.updateBubblePosition();
     this.bubble.visible = true;
     this.bubbleExpiresAt = now + ttlMs;
+  }
+
+  private updateBubblePosition(): void {
+    this.bubble.position.set(0, -this.artHeight - 8);
   }
 }
 
