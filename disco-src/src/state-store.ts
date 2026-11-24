@@ -1,4 +1,4 @@
-import type { DiscoCharacter, DiscoConfig, DiscoMessage } from "./types";
+import type { CharacterBubble, DiscoCharacter, DiscoConfig, DiscoMessage } from "./types";
 
 export type StoreUpdate =
   | { type: "snapshot"; characters: DiscoCharacter[]; config: DiscoConfig }
@@ -40,10 +40,11 @@ export class DiscoStateStore {
     if (message.action === "snapshot") {
       this.lastSeq = message.seq;
       this.currentConfig = message.config ?? this.currentConfig;
+      const now = Date.now();
       this.characterMap = new Map(
         (message.characters ?? [])
           .filter((character) => isCharacterData(character))
-          .map((character) => [character.uid, normalizeCharacter(character)]),
+          .map((character) => [character.uid, normalizeCharacter(character, now)]),
       );
       return {
         type: "snapshot",
@@ -80,19 +81,29 @@ export class DiscoStateStore {
     }
     if (message.action === "create" && isCharacter(message)) {
       this.lastSeq = message.seq;
-      const character = normalizeCharacter(message);
+      const character = normalizeCharacter(message, Date.now());
       this.characterMap.set(character.uid, character);
       return { type: "upsert", character };
     }
     if (message.uid && this.characterMap.has(message.uid)) {
       const previous = this.characterMap.get(message.uid)!;
       const next = { ...previous };
+      const now = Date.now();
+      if (message.action !== "say") {
+        clearExpiredBubble(next, now);
+      }
       if (message.action === "move") {
         if (typeof message.x === "number") next.x = message.x;
         if (typeof message.y === "number") next.y = message.y;
         if (message.direction) next.direction = message.direction;
       } else if (message.action === "say" && message.text) {
-        next.bubble = { text: message.text, ttlMs: message.ttlMs ?? 4200 };
+        const ttlMs = Number.isFinite(message.ttlMs) && message.ttlMs! > 0
+          ? message.ttlMs!
+          : 4200;
+        const expiresAt = Number.isFinite(message.expiresAt)
+          ? message.expiresAt!
+          : now + ttlMs;
+        next.bubble = { text: message.text, ttlMs, expiresAt };
       } else if (message.action === "change" && message.skinId) {
         next.skinId = message.skinId;
       } else {
@@ -126,17 +137,39 @@ function isCharacterData(value: DiscoCharacter): value is DiscoCharacter {
   );
 }
 
-function normalizeCharacter(character: DiscoCharacter): DiscoCharacter {
+function normalizeCharacter(character: DiscoCharacter, now = Date.now()): DiscoCharacter {
   const normalized: DiscoCharacter = {
     ...character,
     platform: character.platform ?? "bilibili",
     sourceUid: character.sourceUid ?? "",
     roleType: character.roleType === "npc" ? "npc" : "viewer",
-    bubble: character.bubble
-      ? { text: String(character.bubble.text), ttlMs: Number(character.bubble.ttlMs) || 4200 }
-      : null,
+    bubble: normalizeBubble(character.bubble, now),
     direction: character.direction ?? "left",
   };
   delete (normalized as DiscoCharacter & { band?: unknown }).band;
   return normalized;
+}
+
+function normalizeBubble(value: unknown, now: number): CharacterBubble | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const bubble = value as Partial<CharacterBubble>;
+  const text = String(bubble.text ?? "");
+  if (!text) {
+    return null;
+  }
+  const ttlMs = Number.isFinite(bubble.ttlMs) && bubble.ttlMs! > 0
+    ? bubble.ttlMs!
+    : 4200;
+  const expiresAt = Number.isFinite(bubble.expiresAt)
+    ? bubble.expiresAt!
+    : now + ttlMs;
+  return expiresAt > now ? { text, ttlMs, expiresAt } : null;
+}
+
+function clearExpiredBubble(character: DiscoCharacter, now: number): void {
+  if (character.bubble && character.bubble.expiresAt <= now) {
+    character.bubble = null;
+  }
 }

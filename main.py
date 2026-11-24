@@ -532,13 +532,13 @@ def build_web(app: App):
             return web.json_response({"ok": False, "error": error}, status=status)
         return web.json_response({"ok": True, "message": message, "npcs": app.disco.list_manual_npcs()})
 
-    @routes.post("/api/disco/bubble")
-    async def disco_bubble(request):
+    @routes.post("/api/disco/danmaku")
+    async def disco_danmaku(request):
         try:
             payload = await request.json()
         except Exception:
             payload = {}
-        message, error = app.disco.send_bubble(
+        result, error = app.disco.simulate_danmaku(
             (payload or {}).get("uid"),
             (payload or {}).get("text"),
             app.platform,
@@ -546,7 +546,7 @@ def build_web(app: App):
         if error:
             status = 404 if error == "角色不存在" else (409 if "未运行" in error else 400)
             return web.json_response({"ok": False, "error": error}, status=status)
-        return web.json_response({"ok": True, "message": message})
+        return web.json_response({"ok": True, **result})
 
     @routes.get("/game")
     async def game_page(_):

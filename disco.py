@@ -92,12 +92,15 @@ class DiscoCharacter:
     bubble_text: str = ""
     bubble_expires_at: float = 0.0
 
-    def snapshot(self, now: float) -> dict[str, Any]:
+    def snapshot(self, now: float, wall_now: float | None = None) -> dict[str, Any]:
         bubble = None
         if self.bubble_text and self.bubble_expires_at > now:
+            remaining = self.bubble_expires_at - now
+            wall_base = time.time() if wall_now is None else wall_now
             bubble = {
                 "text": self.bubble_text,
-                "ttlMs": max(0, int((self.bubble_expires_at - now) * 1000)),
+                "ttlMs": max(0, int(remaining * 1000)),
+                "expiresAt": int((wall_base + remaining) * 1000),
             }
         return {
             "uid": self.key,
@@ -182,11 +185,15 @@ class DiscoManager:
 
     def snapshot(self, *, emit: bool = True) -> dict[str, Any]:
         now = self._clock()
+        wall_now = self._wall_clock()
         payload = dict(
             enabled=self.enabled,
             count=len(self.characters),
             config=self.cfg,
-            characters=[character.snapshot(now) for character in self.characters.values()],
+            characters=[
+                character.snapshot(now, wall_now)
+                for character in self.characters.values()
+            ],
         )
         message = self._message("snapshot", **payload)
         if emit and self._emit:
@@ -320,8 +327,9 @@ class DiscoManager:
 
     def list_manual_npcs(self) -> list[dict[str, Any]]:
         now = self._clock()
+        wall_now = self._wall_clock()
         return [
-            character.snapshot(now)
+            character.snapshot(now, wall_now)
             for character in sorted(self.characters.values(), key=lambda item: item.created_at)
             if character.role_type == "npc"
         ]
@@ -366,7 +374,102 @@ class DiscoManager:
         del self.characters[key]
         return self._publish("despawn", uid=key, reason="manual_delete"), None
 
-    def send_bubble(
+    def _resolve_character(
+        self,
+        uid: Any,
+        platform: str = "bilibili",
+    ) -> DiscoCharacter | None:
+        target = str(uid or "").strip()
+        if not target:
+            return None
+        character = self.characters.get(target)
+        if not character:
+            normalized_platform = str(platform or "bilibili").strip().lower() or "bilibili"
+            character = self.characters.get(f"viewer:{normalized_platform}:{target}")
+        return character
+
+    def _move_character_target(
+        self,
+        character: DiscoCharacter,
+        now: float,
+        dx: float,
+        dy: float,
+    ) -> list[dict[str, Any]]:
+        character.x += dx
+        character.y += dy
+        character.x, character.y = self.clamp_to_dance_floor(character.x, character.y) or (
+            character.x,
+            character.y,
+        )
+        character.last_seen = now
+        payload: dict[str, Any] = {
+            "uid": character.key,
+            "x": round(character.x, 2),
+            "y": round(character.y, 2),
+        }
+        if dx:
+            payload["direction"] = "left" if dx < 0 else "right"
+        return [self._publish("move", **payload)]
+
+    def _change_skin_for_character(
+        self,
+        character: DiscoCharacter,
+        requested: Any,
+        now: float,
+    ) -> list[dict[str, Any]]:
+        skins = self.cfg.get("skins") or []
+        ids = [str(item.get("id")) for item in skins if isinstance(item, dict) and item.get("id")]
+        requested = str(requested or "").strip()
+        if requested in ids:
+            skin_id = requested
+        else:
+            options = [item for item in ids if item != character.skin_id]
+            skin_id = str(self._rng.choice(options)) if options else self._choose_skin()
+        character.skin_id = skin_id
+        character.last_seen = now
+        return [self._publish("change", uid=character.key, skinId=skin_id)]
+
+    def _execute_target_command(
+        self,
+        character: DiscoCharacter,
+        command: str,
+        now: float,
+    ) -> tuple[list[dict[str, Any]], str | None, bool]:
+        if command == "创建角色":
+            return [], None, True
+        if command == "切换角色":
+            return self._change_skin_for_character(character, "", now), None, False
+        if command.startswith("切换角色 "):
+            return (
+                self._change_skin_for_character(
+                    character,
+                    command[len("切换角色 "):].strip(),
+                    now,
+                ),
+                None,
+                False,
+            )
+        if command in {"镜头 dj", "镜头 DJ", "镜头 DJ台", "镜头 舞台"}:
+            return [], "该指令为全局指令，请使用镜头控件", False
+        if command == "销毁角色":
+            existing = self.characters.pop(character.key, None)
+            if not existing:
+                return [], "角色不存在", False
+            return [self._publish("despawn", uid=existing.key)], None, False
+        if command.startswith("移动到"):
+            move_body = command[len("移动到"):]
+        elif command.startswith("移动"):
+            move_body = command[len("移动"):]
+        else:
+            move_body = None
+        if move_body is not None:
+            deltas = _parse_move_command(move_body, self.cfg.get("move_step", 20))
+            if deltas is None:
+                return [], "移动指令格式无效", False
+            return self._move_character_target(character, now, *deltas), None, False
+        return [], "无法识别的 Disco 指令", False
+
+    def simulate_danmaku(
         self,
         uid: Any,
         text: Any,
@@ -376,18 +479,21 @@ class DiscoManager:
             return None, "Disco 服务未运行"
         clean = _normal_name(text)
         if not clean:
-            return None, "气泡内容不能为空"
-        target = str(uid or "").strip()
-        if not target:
-            return None, "角色不存在"
-        character = self.characters.get(target)
-        if not character:
-            normalized_platform = str(platform or "bilibili").strip().lower() or "bilibili"
-            character = self.characters.get(f"viewer:{normalized_platform}:{target}")
+            return None, "模拟弹幕不能为空"
+        character = self._resolve_character(uid, platform)
         if not character:
             return None, "角色不存在"
-        message = self._say(character, clean, self._clock())
-        return message, None
+        prefix = str(self.cfg.get("command_prefix") or "/disco")
+        now = self._clock()
+        if not clean.casefold().startswith(prefix.casefold()):
+            character.last_seen = now
+            message = self._say(character, clean, now)
+            return {"silent": False, "messages": [message] if message else []}, None
+        command = clean[len(prefix):].strip()
+        messages, error, silent = self._execute_target_command(character, command, now)
+        if error:
+            return None, error
+        return {"silent": silent, "messages": messages}, None
 
     def _say(self, character: DiscoCharacter, text: Any, now: float) -> dict[str, Any] | None:
         clean = _normal_name(text)
@@ -421,21 +527,7 @@ class DiscoManager:
         character = self.characters.get(key)
         if not character:
             return []
-        character.x += dx
-        character.y += dy
-        character.x, character.y = self.clamp_to_dance_floor(character.x, character.y) or (
-            character.x,
-            character.y,
-        )
-        character.last_seen = now
-        payload: dict[str, Any] = {
-            "uid": character.key,
-            "x": round(character.x, 2),
-            "y": round(character.y, 2),
-        }
-        if dx:
-            payload["direction"] = "left" if dx < 0 else "right"
-        return [self._publish("move", **payload)]
+        return self._move_character_target(character, now, dx, dy)
 
     def _change_skin(self, event: dict[str, Any], now: float) -> list[dict[str, Any]]:
         identity = self.user_identity(event)
@@ -445,17 +537,11 @@ class DiscoManager:
         character = self.characters.get(key)
         if not character:
             return []
-        skins = self.cfg.get("skins") or []
-        ids = [str(item.get("id")) for item in skins if isinstance(item, dict) and item.get("id")]
-        requested = str(event.get("skinId") or event.get("value") or "").strip()
-        if requested in ids:
-            skin_id = requested
-        else:
-            options = [item for item in ids if item != character.skin_id]
-            skin_id = str(self._rng.choice(options)) if options else self._choose_skin()
-        character.skin_id = skin_id
-        character.last_seen = now
-        return [self._publish("change", uid=character.key, skinId=skin_id)]
+        return self._change_skin_for_character(
+            character,
+            event.get("skinId") or event.get("value"),
+            now,
+        )
 
     def _focus(self, event: dict[str, Any], now: float) -> list[dict[str, Any]]:
         identity = self.user_identity(event)
@@ -497,36 +583,21 @@ class DiscoManager:
         if command == "创建角色":
             character, created, _ = self._ensure_character(event, now)
             return [self._emit_create(character)] if character and created else []
-        if command == "切换角色":
-            return self._change_skin(event, now)
-        if command.startswith("切换角色 "):
-            return self._change_skin({**event, "skinId": command[len("切换角色 "):].strip()}, now)
         if command in {"镜头 dj", "镜头 DJ", "镜头 DJ台", "镜头 舞台"}:
             message = self.shot_dj()
             return [message] if message else []
-        if command == "销毁角色":
-            identity = self.user_identity(event)
-            if identity:
-                existing = self.characters.pop(identity[0], None)
-                if existing:
-                    return [self._publish("despawn", uid=existing.key)]
+        identity = self.user_identity(event)
+        if not identity:
             return []
-        if command.startswith("移动到"):
-            move_body = command[len("移动到"):]
-        elif command.startswith("移动"):
-            move_body = command[len("移动"):]
-        else:
-            move_body = None
-        if move_body is not None:
-            deltas = _parse_move_command(move_body, self.cfg.get("move_step", 20))
-            if deltas is None:
-                self.rejected += 1
-                self._log("warning", f"Disco 拒绝无效移动指令：{text}")
-                return []
-            return self._move_character(event, now, *deltas)
-        self.rejected += 1
-        self._log("warning", f"Disco 未识别指令：{text}")
-        return []
+        character = self.characters.get(identity[0])
+        if not character:
+            return []
+        messages, error, _silent = self._execute_target_command(character, command, now)
+        if error:
+            self.rejected += 1
+            self._log("warning", f"Disco 指令失败：{text}：{error}")
+            return []
+        return messages
 
     def on_event(self, event: dict[str, Any], now: float | None = None) -> list[dict[str, Any]]:
         if not self.enabled:

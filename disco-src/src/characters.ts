@@ -197,6 +197,7 @@ class CharacterView {
   private artHeight = 176;
   private phase = Math.random() * Math.PI * 2;
   private bubbleExpiresAt = 0;
+  private bubbleSignature = "";
   private config: DiscoConfig;
 
   constructor(character: DiscoCharacter, texture: Texture, config: DiscoConfig, skinScale = 1) {
@@ -271,8 +272,16 @@ class CharacterView {
       this.container.position.set(character.x, character.y);
     }
     this.sprite.scale.x = this.textureScale * (character.direction === "right" ? -1 : 1);
-    if (character.bubble?.text) {
-      this.showBubble(character.bubble.text, character.bubble.ttlMs, performance.now());
+    const bubble = character.bubble;
+    if (!bubble) {
+      this.hideBubble();
+    } else if (bubble.expiresAt <= Date.now()) {
+      this.hideBubble();
+    } else {
+      const signature = `${bubble.expiresAt}\0${bubble.text}`;
+      if (!this.bubble.visible || this.bubbleSignature !== signature) {
+        this.showBubble(bubble.text, bubble.expiresAt);
+      }
     }
   }
 
@@ -313,13 +322,12 @@ class CharacterView {
       this.sprite.y = -jump;
       this.sprite.rotation = sway * 0.005;
     }
-    if (this.bubble.visible && now >= this.bubbleExpiresAt) {
-      this.bubble.visible = false;
-      this.model.bubble = null;
+    if (this.bubble.visible && Date.now() >= this.bubbleExpiresAt) {
+      this.hideBubble();
     }
   }
 
-  private showBubble(text: string, ttlMs: number, now: number): void {
+  private showBubble(text: string, expiresAt: number): void {
     const limit = Math.max(1, this.config.bubble_max_chars);
     const shown = text.slice(0, limit);
     this.bubbleText.text = shown;
@@ -333,7 +341,15 @@ class CharacterView {
       .stroke({ width: 2, color: 0xff70d9, alpha: 0.95 });
     this.updateBubblePosition();
     this.bubble.visible = true;
-    this.bubbleExpiresAt = now + ttlMs;
+    this.bubbleExpiresAt = expiresAt;
+    this.bubbleSignature = `${expiresAt}\0${text}`;
+  }
+
+  private hideBubble(): void {
+    this.bubble.visible = false;
+    this.bubbleExpiresAt = 0;
+    this.bubbleSignature = "";
+    this.model.bubble = null;
   }
 
   private updateBubblePosition(): void {

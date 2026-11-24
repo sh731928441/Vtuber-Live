@@ -99,6 +99,7 @@ export interface DiscoConfig {
 export interface CharacterBubble {
   text: string;
   ttlMs: number;
+  expiresAt: number;
 }
 
 export type CharacterKind = "viewer" | "npc";

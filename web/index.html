@@ -610,11 +610,11 @@
       <span class="hint" id="discoNpcHint">当前没有手动 NPC</span>
     </div>
     <div class="row" style="margin-top:10px">
-      <label class="f">目标 UID<input id="discoBubbleUid" placeholder="用户 UID 或 npc:runtime:1"></label>
-      <label class="f">气泡内容<input id="discoBubbleText" placeholder="显示在角色图片上方"></label>
-      <span class="btn b" id="discoBubbleSend" style="margin-top:18px">发送气泡</span>
+      <label class="f">目标 UID<input id="discoDanmakuUid" placeholder="用户 UID 或 npc:runtime:1"></label>
+      <label class="f">模拟弹幕<input id="discoDanmakuText" placeholder="普通文本或 /disco 移动 左 20 上30"></label>
+      <span class="btn b" id="discoDanmakuSend" style="margin-top:18px">发送模拟弹幕</span>
     </div>
-    <p class="hint">手动 NPC 名称按 npc1、npc2 递增；真实用户与 NPC 同名也使用不同内部身份。指定 UID 发送气泡只更新 Disco 画面，不会进入 AI、TTS 或直播事件处理。</p>
+    <p class="hint">手动 NPC 名称按 npc1、npc2 递增；真实用户与 NPC 同名也使用不同内部身份。模拟弹幕只作用于目标 UID，支持普通文本、移动、切换角色和销毁角色；DJ 台镜头等全局指令请使用镜头控件。该入口不会进入 AI、TTS 或真实直播事件处理。</p>
     <h3 style="margin-top:16px">统一舞区</h3>
     <div class="row">
       <label class="f">舞区最小 X<input type="number" data-k="disco.dance_floor.x.0"></label>
@@ -944,19 +944,23 @@ function setDiscoNpcs(npcs) {
   DISCO_NPCS = (Array.isArray(npcs) ? npcs : [])
     .filter(npc => npc?.roleType === 'npc')
     .sort((a, b) => npcSerial(a.uid) - npcSerial(b.uid));
+  const uidInput = $('#discoDanmakuUid');
+  if (uidInput && !uidInput.value.trim() && DISCO_NPCS.length) {
+    uidInput.value = DISCO_NPCS[DISCO_NPCS.length - 1].uid;
+  }
   renderDiscoNpcStatus(Boolean(CFG._disco_running));
 }
 function renderDiscoNpcStatus(running) {
   const hint = $('#discoNpcHint');
   if (hint) {
     hint.textContent = DISCO_NPCS.length
-      ? `共 ${DISCO_NPCS.length} 个手动 NPC，下一个将删除 ${DISCO_NPCS[DISCO_NPCS.length - 1].name}`
+      ? `共 ${DISCO_NPCS.length} 个手动 NPC，最后：${DISCO_NPCS[DISCO_NPCS.length - 1].name} · ${DISCO_NPCS[DISCO_NPCS.length - 1].uid}`
       : '当前没有手动 NPC';
   }
   renderDiscoNpcControls(running);
 }
 function renderDiscoNpcControls(running) {
-  for (const id of ['discoNpcAdd', 'discoNpcDelete', 'discoBubbleSend']) {
+  for (const id of ['discoNpcAdd', 'discoNpcDelete', 'discoDanmakuSend']) {
     const button = $(`#${id}`);
     if (!button) continue;
     const allowed = running && (id !== 'discoNpcDelete' || DISCO_NPCS.length > 0);
@@ -1000,28 +1004,29 @@ async function deleteDiscoNpc() {
     toast(`删除 NPC 失败：${error.message || error}`);
   }
 }
-async function sendDiscoBubble() {
+async function sendDiscoDanmaku() {
   if (!CFG._disco_running) return toast('Disco 服务未运行');
-  const uid = $('#discoBubbleUid').value.trim();
-  const text = $('#discoBubbleText').value.trim();
+  const uid = $('#discoDanmakuUid').value.trim();
+  const text = $('#discoDanmakuText').value.trim();
   if (!uid) return toast('请输入目标 UID');
-  if (!text) return toast('请输入气泡内容');
-  const button = $('#discoBubbleSend');
+  if (!text) return toast('请输入模拟弹幕');
+  const button = $('#discoDanmakuSend');
   button.style.opacity = '0.55';
   try {
-    const result = await api('/api/disco/bubble', {uid, text});
-    if (!result.ok) return toast(result.error || '发送气泡失败');
-    $('#discoBubbleText').value = '';
-    toast(`已向 ${uid} 发送气泡`);
+    const result = await api('/api/disco/danmaku', {uid, text});
+    if (!result.ok) return toast(result.error || '发送模拟弹幕失败');
+    if (result.silent) return;
+    $('#discoDanmakuText').value = '';
+    toast(`已向 ${uid} 发送模拟弹幕`);
   } catch (error) {
-    toast(`发送气泡失败：${error.message || error}`);
+    toast(`发送模拟弹幕失败：${error.message || error}`);
   } finally {
     renderDiscoNpcControls(Boolean(CFG._disco_running));
   }
 }
 $('#discoNpcAdd').onclick = () => void addDiscoNpc();
 $('#discoNpcDelete').onclick = () => void deleteDiscoNpc();
-$('#discoBubbleSend').onclick = () => void sendDiscoBubble();
+$('#discoDanmakuSend').onclick = () => void sendDiscoDanmaku();
 const DISCO_FIXED_RESOURCES = [
   {id: 'ceilingWall', label: '远景墙'},
   {id: 'djBooth', label: '中央 DJ 台'},
