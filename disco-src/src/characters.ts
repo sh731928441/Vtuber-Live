@@ -224,11 +224,12 @@ class CharacterView {
     }
     this.artHeight = this.fallback ? 176 : texture.height * this.textureScale;
 
+    //  NPC名字文本配置
     this.name = new Text({
       text: character.name,
       style: {
         fontFamily: '"Microsoft YaHei UI", "PingFang SC", sans-serif',
-        fontSize: 15,
+        fontSize: 50,
         fontWeight: "600",
         fill: 0xffffff,
         stroke: { color: 0x09030f, width: 4 },

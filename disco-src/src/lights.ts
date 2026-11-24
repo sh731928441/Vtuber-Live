@@ -62,7 +62,8 @@ export class LightRig {
       const drift = qualityScale(this.quality);
       const t = this.elapsed + node.phase;
       node.root.x = node.baseX + Math.sin(t * 0.19) * lights.drift_x * drift;
-      node.root.y = 42 + Math.cos(t * 0.13 + index) * lights.drift_y * drift;
+      //  灯光的Y轴
+      node.root.y = -50 + Math.cos(t * 0.13 + index) * lights.drift_y * drift;
       const breath = Math.sin(t * 0.46 + index * 0.7) * lights.breath * drift;
       node.beam.alpha = lights.base_alpha * (1 + breath);
     });
