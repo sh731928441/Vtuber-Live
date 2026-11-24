@@ -15,6 +15,27 @@ export function lerp(start: number, end: number, amount: number): number {
   return start + (end - start) * amount;
 }
 
+export function advanceToward(
+  currentX: number,
+  currentY: number,
+  targetX: number,
+  targetY: number,
+  maxDistance: number,
+): { x: number; y: number; moving: boolean } {
+  const dx = targetX - currentX;
+  const dy = targetY - currentY;
+  const distance = Math.hypot(dx, dy);
+  if (distance <= maxDistance || distance < 0.01) {
+    return { x: targetX, y: targetY, moving: false };
+  }
+  const step = Math.max(0, maxDistance);
+  return {
+    x: currentX + (dx / distance) * step,
+    y: currentY + (dy / distance) * step,
+    moving: true,
+  };
+}
+
 export function easeInOutCubic(value: number): number {
   const t = clamp(value, 0, 1);
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;

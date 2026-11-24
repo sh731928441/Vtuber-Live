@@ -286,11 +286,15 @@ DEFAULTS = {
         },
         "items": [],
         "lights": {
+            "top_y": 0,
+            "sway_enabled": False,
+            "sway_speed": 1.0,
+            "random_colors": False,
             "count": 5,
             "base_alpha": 0.38,
             "breath": 0.1,
             "drift_x": 46,
-            "drift_y": 14,
+            "drift_y": 0,
             "colors": ["#31d7ff", "#ff4fca", "#7c62ff", "#ffb347", "#35f2c4"],
             "background_wash": {
                 "color": "#6d4cff",

@@ -1,5 +1,6 @@
 import { Container, Graphics, Sprite, Text, Texture } from "pixi.js";
-import { danceFloorBrightness, danceFloorScale, layerZ } from "./geometry";
+import { advanceToward, danceFloorBrightness, danceFloorScale, layerZ } from "./geometry";
+import { SCENE_LAYERS } from "./layers";
 import { loadResourceManifest, type ResourceError } from "./resources";
 import type { DiscoCharacter, DiscoConfig } from "./types";
 
@@ -19,6 +20,8 @@ export function fitSkinScale(width: number, height: number): number {
   return Math.min(180 / safeWidth, 220 / safeHeight);
 }
 
+const MOVE_SPEED_PX_PER_SECOND = 120;
+
 export class CharacterLayer {
   readonly dancers: Container;
   private readonly views = new Map<string, CharacterView>();
@@ -31,7 +34,7 @@ export class CharacterLayer {
     this.config = config;
     this.dancers = new Container();
     this.dancers.sortableChildren = true;
-    this.dancers.zIndex = 30;
+    this.dancers.zIndex = SCENE_LAYERS.characters;
     parent.addChild(this.dancers);
     this.fallbackTexture = makeFallbackCharacterTexture();
   }
@@ -198,6 +201,8 @@ class CharacterView {
   private phase = Math.random() * Math.PI * 2;
   private bubbleExpiresAt = 0;
   private bubbleSignature = "";
+  private moving = false;
+  private bounceElapsed = 0;
   private config: DiscoConfig;
 
   constructor(character: DiscoCharacter, texture: Texture, config: DiscoConfig, skinScale = 1) {
@@ -268,6 +273,7 @@ class CharacterView {
     this.targetX = character.x;
     this.targetY = character.y;
     this.name.text = character.name;
+    this.moving = false;
     this.container.alpha = danceFloorBrightness(this.config.dance_floor, character.y);
     if (!animate) {
       this.container.position.set(character.x, character.y);
@@ -306,22 +312,39 @@ class CharacterView {
   }
 
   update(deltaMs: number, now: number, degraded: boolean): void {
-    const amount = Math.min(1, deltaMs / 110);
-    this.container.x += (this.targetX - this.container.x) * amount;
-    this.container.y += (this.targetY - this.container.y) * amount;
+    const step = MOVE_SPEED_PX_PER_SECOND * Math.min(deltaMs, 100) / 1000;
+    const advanced = advanceToward(
+      this.container.x,
+      this.container.y,
+      this.targetX,
+      this.targetY,
+      step,
+    );
+    this.container.position.set(advanced.x, advanced.y);
+    this.moving = advanced.moving;
     this.model.x = this.container.x;
     this.model.y = this.container.y;
     this.baseScale = danceFloorScale(this.config.dance_floor, this.container.y);
     this.container.alpha = danceFloorBrightness(this.config.dance_floor, this.container.y);
 
     const t = now / 1000 + this.phase;
-    const jump = degraded ? 0 : Math.abs(Math.sin(t * 3.2)) * 7;
-    const sway = degraded ? 0 : Math.sin(t * 2.15) * 3;
-    const squash = degraded ? 0 : Math.sin(t * 4.2) * 0.018;
+    const movingAnimation = this.moving && !degraded;
+    this.bounceElapsed = movingAnimation ? this.bounceElapsed + Math.min(deltaMs, 100) / 1000 : 0;
+    const bouncePhase = this.bounceElapsed * Math.PI * 5.4;
+    const jump = movingAnimation
+      ? Math.abs(Math.sin(bouncePhase)) * 10
+      : degraded ? 0 : Math.abs(Math.sin(t * 3.2)) * 7;
+    const sway = movingAnimation
+      ? Math.sin(bouncePhase) * 6
+      : degraded ? 0 : Math.sin(t * 2.15) * 3;
+    const squash = movingAnimation
+      ? Math.sin(bouncePhase * 2) * 0.026
+      : degraded ? 0 : Math.sin(t * 4.2) * 0.018;
     this.container.scale.set(this.baseScale * (1 + squash), this.baseScale * (1 - squash * 0.7));
     if (!this.fallback) {
+      this.sprite.x = movingAnimation ? sway : 0;
       this.sprite.y = -jump;
-      this.sprite.rotation = sway * 0.005;
+      this.sprite.rotation = movingAnimation ? sway * 0.014 : sway * 0.005;
     }
     if (this.bubble.visible && Date.now() >= this.bubbleExpiresAt) {
       this.hideBubble();

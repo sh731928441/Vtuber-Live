@@ -2,6 +2,7 @@ import { Application, Assets, Container, Graphics, Sprite, Texture } from "pixi.
 import { Viewport } from "pixi-viewport";
 import { CameraDirector } from "./camera";
 import { CharacterLayer } from "./characters";
+import { SCENE_LAYERS } from "./layers";
 import { LightRig } from "./lights";
 import { PerformanceGovernor } from "./performance";
 import { loadResourceManifest, type ResourceError } from "./resources";
@@ -19,6 +20,7 @@ export class DiscoScene {
   private readonly world = new Container();
   private readonly backWall = new Container();
   private readonly itemSet = new Container();
+  private readonly djPerformer = new Container();
   private readonly djBooth = new Container();
   private characters!: CharacterLayer;
   private lights!: LightRig;
@@ -78,12 +80,13 @@ export class DiscoScene {
       .fill({ color: 0x08040d, alpha: 1 })
       .ellipse(1920, 430, 1260, 430)
       .fill({ color: 0x5a216f, alpha: 0.2 });
-    base.zIndex = -10;
-    this.backWall.zIndex = 0;
-    this.itemSet.zIndex = 10;
+    base.zIndex = SCENE_LAYERS.base;
+    this.backWall.zIndex = SCENE_LAYERS.backWall;
+    this.itemSet.zIndex = SCENE_LAYERS.items;
     this.itemSet.sortableChildren = true;
-    this.djBooth.zIndex = 45;
-    this.world.addChild(base, this.backWall, this.itemSet, this.djBooth);
+    this.djPerformer.zIndex = SCENE_LAYERS.djPerformer;
+    this.djBooth.zIndex = SCENE_LAYERS.djBooth;
+    this.world.addChild(base, this.backWall, this.itemSet, this.djPerformer, this.djBooth);
     this.characters = new CharacterLayer(this.world, this.config);
     this.lights = new LightRig(this.world, this.config);
     this.camera = new CameraDirector(

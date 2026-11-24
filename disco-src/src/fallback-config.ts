@@ -29,6 +29,10 @@ export const FALLBACK_CONFIG: DiscoConfig = {
   },
   items: [],
   lights: {
+    top_y: 0,
+    sway_enabled: false,
+    sway_speed: 1,
+    random_colors: false,
     count: 5,
     base_alpha: 0.38,
     breath: 0.1,

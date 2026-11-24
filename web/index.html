@@ -646,18 +646,24 @@
       <span class="btn b" id="discoSkinAdd" style="margin-top:18px">+ 新增皮肤</span>
       <span class="btn" id="discoSkinRefresh" style="margin-top:18px">刷新资源列表</span>
     </div>
-    <p class="hint">动态物品始终位于观众后方；列表顶部为最高物品层级，可使用上移、下移调整。DJ 台位于所有角色上方、前景柔光下方。</p>
+    <p class="hint">动态物品始终位于观众后方；列表顶部为最高物品层级，可使用上移、下移调整。舞区角色位于 DJ 台和动态物品前方，DJ 台仍在前景柔光下方。</p>
     <p class="hint">路径相对于本机服务，例如 <code>assets/scene/speaker.png</code> 会规范为 <code>/disco/assets/scene/speaker.png</code>。图片需放入 <code>disco-src/public/assets/</code> 并重新构建。</p>
     <p class="hint">默认皮肤固定使用 <code>/disco/assets/role/default.png</code>，不能从列表删除；需要更换时直接替换该文件。其他角色图片放在 <code>disco-src/public/assets/role/</code>，构建后可在这里新增。</p>
   </div>
   <div class="card">
     <h3>柔光</h3>
     <div class="row">
+      <label class="f">顶部 Y<input type="number" step="1" data-k="disco.lights.top_y"></label>
       <label class="f">光源数量 <b data-show="disco.lights.count"></b><input type="range" min="4" max="6" step="1" data-k="disco.lights.count"></label>
       <label class="f">基础亮度 <b data-show="disco.lights.base_alpha"></b><input type="range" min="0.1" max="0.7" step="0.01" data-k="disco.lights.base_alpha"></label>
       <label class="f">呼吸幅度 <b data-show="disco.lights.breath"></b><input type="range" min="0" max="0.3" step="0.01" data-k="disco.lights.breath"></label>
-      <label class="f">横向漂移 <b data-show="disco.lights.drift_x"></b><input type="range" min="0" max="100" step="1" data-k="disco.lights.drift_x"></label>
+      <label class="f">摇摆幅度 <b data-show="disco.lights.drift_x"></b><input type="range" min="0" max="100" step="1" data-k="disco.lights.drift_x"></label>
       <label class="f">观众区柔光 <b data-show="disco.lights.front_alpha"></b><input type="range" min="0" max="0.3" step="0.01" data-k="disco.lights.front_alpha"></label>
+    </div>
+    <div class="row">
+      <label class="c"><input type="checkbox" data-k="disco.lights.sway_enabled">左右摇摆</label>
+      <label class="f">摇摆速度 <b data-show="disco.lights.sway_speed"></b><input type="range" min="0.2" max="3" step="0.1" data-k="disco.lights.sway_speed"></label>
+      <label class="c"><input type="checkbox" data-k="disco.lights.random_colors">随机变色</label>
     </div>
     <div class="row">
       <label class="f">颜色（每行一个）<textarea data-k="disco.lights.colors" data-list="1" style="min-height:84px"></textarea></label>

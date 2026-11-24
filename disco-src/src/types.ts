@@ -41,6 +41,10 @@ export interface SkinSpec {
 }
 
 export interface LightConfig {
+  top_y: number;
+  sway_enabled: boolean;
+  sway_speed: number;
+  random_colors: boolean;
   count: number;
   base_alpha: number;
   breath: number;
