@@ -654,16 +654,18 @@
     <h3>柔光</h3>
     <div class="row">
       <label class="f">顶部 Y<input type="number" step="1" data-k="disco.lights.top_y"></label>
-      <label class="f">光源数量 <b data-show="disco.lights.count"></b><input type="range" min="4" max="6" step="1" data-k="disco.lights.count"></label>
+      <label class="f">光源数量 <b data-show="disco.lights.count"></b><input type="range" min="3" max="10" step="1" data-k="disco.lights.count"></label>
+      <label class="f">光束长度<input type="number" min="400" max="1600" step="10" data-k="disco.lights.beam_length"></label>
       <label class="f">基础亮度 <b data-show="disco.lights.base_alpha"></b><input type="range" min="0.1" max="0.7" step="0.01" data-k="disco.lights.base_alpha"></label>
       <label class="f">呼吸幅度 <b data-show="disco.lights.breath"></b><input type="range" min="0" max="0.3" step="0.01" data-k="disco.lights.breath"></label>
-      <label class="f">摇摆幅度 <b data-show="disco.lights.drift_x"></b><input type="range" min="0" max="100" step="1" data-k="disco.lights.drift_x"></label>
+      <label class="f">旋转角度 <b data-show="disco.lights.sway_angle"></b><input type="range" min="0" max="90" step="1" data-k="disco.lights.sway_angle"></label>
       <label class="f">观众区柔光 <b data-show="disco.lights.front_alpha"></b><input type="range" min="0" max="0.3" step="0.01" data-k="disco.lights.front_alpha"></label>
     </div>
     <div class="row">
       <label class="c"><input type="checkbox" data-k="disco.lights.sway_enabled">左右摇摆</label>
-      <label class="f">摇摆速度 <b data-show="disco.lights.sway_speed"></b><input type="range" min="0.2" max="3" step="0.1" data-k="disco.lights.sway_speed"></label>
-      <label class="c"><input type="checkbox" data-k="disco.lights.random_colors">随机变色</label>
+      <label class="f">摇摆速度 <b data-show="disco.lights.sway_speed"></b><input type="range" min="0.2" max="5" step="0.1" data-k="disco.lights.sway_speed"></label>
+      <label class="c"><input type="checkbox" data-k="disco.lights.random_colors">循环变色</label>
+      <label class="f">每段渐变秒数 <b data-show="disco.lights.color_interval_seconds"></b><input type="range" min="0.5" max="5" step="0.5" data-k="disco.lights.color_interval_seconds"></label>
     </div>
     <div class="row">
       <label class="f">颜色（每行一个）<textarea data-k="disco.lights.colors" data-list="1" style="min-height:84px"></textarea></label>

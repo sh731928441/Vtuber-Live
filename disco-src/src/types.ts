@@ -44,6 +44,9 @@ export interface LightConfig {
   top_y: number;
   sway_enabled: boolean;
   sway_speed: number;
+  sway_angle: number;
+  beam_length: number;
+  color_interval_seconds: number;
   random_colors: boolean;
   count: number;
   base_alpha: number;

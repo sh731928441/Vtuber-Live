@@ -10,12 +10,11 @@ interface RgbColor {
 }
 
 interface ColorState {
-  current: RgbColor;
-  from: RgbColor;
-  to: RgbColor;
-  transitionStartedAt: number;
-  transitionEndsAt: number;
-  nextChangeAt: number;
+  order: RgbColor[];
+  signature: string;
+  initialized: boolean;
+  active: boolean;
+  startedAt: number;
 }
 
 interface LightNode {
@@ -39,8 +38,6 @@ export class LightRig {
   private readonly nodes: LightNode[] = [];
   private readonly backgroundWash: Sprite;
   private readonly frontWash: Sprite;
-  private readonly backgroundWashColor: ColorState;
-  private readonly frontWashColor: ColorState;
   private config: DiscoConfig;
   private quality = 1;
   private elapsed = 0;
@@ -58,10 +55,6 @@ export class LightRig {
     this.frontWash.anchor.set(0.5);
     this.frontWash.blendMode = "add";
     this.front.addChild(this.frontWash);
-    this.backgroundWashColor = createColorState(
-      requiredColor(config.lights.background_wash.color, "#6d4cff"),
-    );
-    this.frontWashColor = createColorState(requiredColor("#ff65d8", "#ff65d8"));
     this.rebuild(config.lights);
   }
 
@@ -88,23 +81,29 @@ export class LightRig {
     this.elapsed += deltaMs / 1000;
     const lights = this.config.lights;
     const palette = parsePalette(lights.colors);
+    const paletteSignature = colorSignature(palette);
     const topY = finiteNumber(lights.top_y, 0);
-    const swaySpeed = Math.max(0.05, finiteNumber(lights.sway_speed, 1));
-    const swayAmount = Math.max(0, finiteNumber(lights.drift_x, 0)) * qualityScale(this.quality);
+    const swaySpeed = clamp(finiteNumber(lights.sway_speed, 1), 0.2, 5);
+    const swayAngle = degreesToRadians(clamp(finiteNumber(lights.sway_angle, 45), 0, 90));
+    const beamLength = clamp(finiteNumber(lights.beam_length, 1010), 400, 1600);
+    const colorInterval = clamp(finiteNumber(lights.color_interval_seconds, 2), 0.5, 5);
     this.nodes.forEach((node, index) => {
       const t = this.elapsed + node.phase;
-      node.root.x = lights.sway_enabled
-        ? node.baseX + Math.sin(this.elapsed * swaySpeed * node.swayRate + node.phase) * swayAmount
-        : node.baseX;
+      node.root.x = node.baseX;
       node.root.y = topY;
+      node.root.rotation = lights.sway_enabled
+        ? Math.sin(this.elapsed * swaySpeed * node.swayRate + node.phase) * swayAngle
+        : 0;
+      node.beam.height = beamLength;
       const breath = Math.sin(t * 0.46 + index * 0.7) * finiteNumber(lights.breath, 0) * qualityScale(this.quality);
       node.beam.alpha = lights.base_alpha * (1 + breath);
-      const color = resolveColorState(
+      const color = resolveCycleColor(
         node.color,
         palette[index % palette.length],
         palette,
+        paletteSignature,
         this.elapsed,
-        index + 11,
+        colorInterval,
         lights.random_colors,
       );
       node.beam.tint = rgbNumber(color);
@@ -113,30 +112,12 @@ export class LightRig {
     this.backgroundWash.position.set(finiteNumber(wash.x, 1920), topY);
     this.backgroundWash.width = wash.width;
     this.backgroundWash.height = wash.height;
-    this.backgroundWash.tint = rgbNumber(
-      resolveColorState(
-        this.backgroundWashColor,
-        requiredColor(wash.color, "#6d4cff"),
-        palette,
-        this.elapsed,
-        101,
-        lights.random_colors,
-      ),
-    );
+    this.backgroundWash.tint = rgbNumber(requiredColor(wash.color, "#6d4cff"));
     this.backgroundWash.alpha = wash.alpha;
     this.frontWash.position.set(1920, topY + 670);
     this.frontWash.width = 3500;
     this.frontWash.height = 720;
-    this.frontWash.tint = rgbNumber(
-      resolveColorState(
-        this.frontWashColor,
-        requiredColor("#ff65d8", "#ff65d8"),
-        palette,
-        this.elapsed,
-        211,
-        lights.random_colors,
-      ),
-    );
+    this.frontWash.tint = rgbNumber(requiredColor("#ff65d8", "#ff65d8"));
     this.frontWash.alpha = lights.front_alpha;
   }
 
@@ -152,7 +133,7 @@ export class LightRig {
       const beam = new Sprite(this.textureCache.get("beam"));
       beam.anchor.set(0.5, 0);
       beam.width = 760;
-      beam.height = 1010;
+      beam.height = clamp(finiteNumber(lights.beam_length, 1010), 400, 1600);
       beam.tint = rgbNumber(colors[index % colors.length]);
       beam.blendMode = "add";
       root.addChild(beam);
@@ -166,7 +147,7 @@ export class LightRig {
         baseX,
         phase: index * 2.17 + noise(index + 31) * Math.PI * 2,
         swayRate: SWAY_RATES[index % SWAY_RATES.length],
-        color: createColorState(colors[index % colors.length]),
+        color: createColorState(),
       });
     }
     this.setQuality(this.quality);
@@ -174,12 +155,20 @@ export class LightRig {
 }
 
 function lightCount(lights: LightConfig): number {
-  return Math.min(6, Math.max(4, Math.round(finiteNumber(lights.count, 5))));
+  return clamp(Math.round(finiteNumber(lights.count, 5)), 3, 10);
 }
 
 function finiteNumber(value: unknown, fallback: number): number {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function degreesToRadians(value: number): number {
+  return value * Math.PI / 180;
 }
 
 function parsePalette(values: unknown): RgbColor[] {
@@ -216,75 +205,67 @@ function requiredColor(value: unknown, fallback: string): RgbColor {
   return parseColor(value, fallback) ?? parseColor(fallback, "") ?? { r: 255, g: 255, b: 255 };
 }
 
-function createColorState(color: RgbColor): ColorState {
+function createColorState(): ColorState {
   return {
-    current: { ...color },
-    from: { ...color },
-    to: { ...color },
-    transitionStartedAt: 0,
-    transitionEndsAt: 0,
-    nextChangeAt: 0,
+    order: [],
+    signature: "",
+    initialized: false,
+    active: false,
+    startedAt: 0,
   };
 }
 
-function resolveColorState(
+function colorSignature(palette: RgbColor[]): string {
+  return palette.map((color) => rgbNumber(color)).join("-");
+}
+
+function resolveCycleColor(
   state: ColorState,
   inactiveColor: RgbColor,
   palette: RgbColor[],
+  signature: string,
   now: number,
-  seed: number,
+  intervalSeconds: number,
   enabled: boolean,
 ): RgbColor {
   if (!enabled) {
-    state.current = { ...inactiveColor };
-    state.from = { ...inactiveColor };
-    state.to = { ...inactiveColor };
-    state.transitionStartedAt = 0;
-    state.transitionEndsAt = 0;
-    state.nextChangeAt = 0;
-    return state.current;
+    state.active = false;
+    return inactiveColor;
   }
-  if (state.nextChangeAt === 0) {
-    state.current = { ...inactiveColor };
-    state.from = { ...inactiveColor };
-    state.to = { ...inactiveColor };
-    state.transitionStartedAt = now;
-    state.transitionEndsAt = now;
-    state.nextChangeAt = now + 0.2 + noise(seed) * 1.6;
+  if (!state.initialized || state.signature !== signature) {
+    state.order = shuffleColors(palette);
+    state.signature = signature;
+    state.initialized = true;
+    state.startedAt = now;
   }
-  if (now >= state.nextChangeAt) {
-    state.from = { ...state.current };
-    state.to = pickDifferentColor(palette, state.current, seed + Math.floor(now * 10));
-    state.transitionStartedAt = now;
-    state.transitionEndsAt = now + 1.5 + noise(seed * 7 + Math.floor(now * 10)) * 1;
-    state.nextChangeAt = state.transitionEndsAt + 1 + noise(seed * 13 + Math.floor(now * 10)) * 2.5;
+  if (!state.active) {
+    state.active = true;
+    state.startedAt = now;
   }
-  if (now < state.transitionEndsAt) {
-    const duration = Math.max(0.001, state.transitionEndsAt - state.transitionStartedAt);
-    const progress = smoothstep(
-      0,
-      1,
-      Math.min(1, Math.max(0, (now - state.transitionStartedAt) / duration)),
-    );
-    state.current = mixColor(state.from, state.to, progress);
-  } else {
-    state.current = { ...state.to };
+  if (state.order.length === 0) {
+    return inactiveColor;
   }
-  return state.current;
+  if (state.order.length === 1) {
+    return state.order[0];
+  }
+  const lap = intervalSeconds * state.order.length;
+  const position = (now - state.startedAt) % lap;
+  const segment = Math.floor(position / intervalSeconds);
+  const progress = (position - segment * intervalSeconds) / intervalSeconds;
+  return mixColor(
+    state.order[segment % state.order.length],
+    state.order[(segment + 1) % state.order.length],
+    smoothstep(0, 1, progress),
+  );
 }
 
-function pickDifferentColor(palette: RgbColor[], current: RgbColor, seed: number): RgbColor {
-  if (palette.length <= 1) {
-    return { ...palette[0] };
+function shuffleColors(palette: RgbColor[]): RgbColor[] {
+  const shuffled = palette.map((color) => ({ ...color }));
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[target]] = [shuffled[target], shuffled[index]];
   }
-  const start = Math.floor(noise(seed) * palette.length) % palette.length;
-  for (let offset = 0; offset < palette.length; offset += 1) {
-    const candidate = palette[(start + offset) % palette.length];
-    if (rgbNumber(candidate) !== rgbNumber(current)) {
-      return { ...candidate };
-    }
-  }
-  return { ...palette[0] };
+  return shuffled;
 }
 
 function mixColor(from: RgbColor, to: RgbColor, amount: number): RgbColor {
